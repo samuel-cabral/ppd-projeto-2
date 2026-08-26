@@ -1,0 +1,890 @@
+<title>Fanorona Sivy</title>
+<style>
+  :root{
+    --bg:#E9E9E2; --surface:#F7F7F3; --surface-2:#DFDFD6;
+    --ink:#171A18; --ink-2:#4E5551; --ink-3:#787F7A;
+    --line:#C6C8BE; --line-soft:#DADCD2;
+    --accent:#175C55; --accent-soft:#D3E3DF; --accent-ink:#0E3F3A;
+    --approach:#B0650E; --approach-soft:#F0DFC4;
+    --withdraw:#6350A0; --withdraw-soft:#E0DAF0;
+    --danger:#A2342A; --danger-soft:#F0D8D4;
+    --board-face:#E4E0D4; --board-line:#A9A392; --board-line-2:#BEB9A8;
+    --stone-w:#FCFBF6; --stone-w-edge:#AEA894;
+    --stone-b:#24282B; --stone-b-edge:#0A0C0E;
+    --shadow:0 1px 2px rgba(23,26,24,.06), 0 8px 24px -12px rgba(23,26,24,.22);
+    --font-display:"Hoefler Text","Iowan Old Style",Palatino,"Palatino Linotype",Georgia,serif;
+    --font-body:ui-sans-serif,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",sans-serif;
+    --font-mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --bg:#121513; --surface:#1A1F1C; --surface-2:#232926;
+      --ink:#E8EBE6; --ink-2:#9BA49E; --ink-3:#79837D;
+      --line:#323936; --line-soft:#272E2A;
+      --accent:#5CBCA9; --accent-soft:#1D3B36; --accent-ink:#9FDACD;
+      --approach:#E0A244; --approach-soft:#3B2F19;
+      --withdraw:#A796DE; --withdraw-soft:#2B2540;
+      --danger:#E1786A; --danger-soft:#3B211E;
+      --board-face:#1E2320; --board-line:#4C5450; --board-line-2:#3B423E;
+      --stone-w:#EDEAE0; --stone-w-edge:#9A968A;
+      --stone-b:#15181A; --stone-b-edge:#565E60;
+      --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px -12px rgba(0,0,0,.7);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#121513; --surface:#1A1F1C; --surface-2:#232926;
+    --ink:#E8EBE6; --ink-2:#9BA49E; --ink-3:#79837D;
+    --line:#323936; --line-soft:#272E2A;
+    --accent:#5CBCA9; --accent-soft:#1D3B36; --accent-ink:#9FDACD;
+    --approach:#E0A244; --approach-soft:#3B2F19;
+    --withdraw:#A796DE; --withdraw-soft:#2B2540;
+    --danger:#E1786A; --danger-soft:#3B211E;
+    --board-face:#1E2320; --board-line:#4C5450; --board-line-2:#3B423E;
+    --stone-w:#EDEAE0; --stone-w-edge:#9A968A;
+    --stone-b:#15181A; --stone-b-edge:#565E60;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px -12px rgba(0,0,0,.7);
+  }
+
+  *{box-sizing:border-box}
+  body{
+    background:var(--bg); color:var(--ink);
+    font-family:var(--font-body); font-size:15px; line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+    padding:0 20px 80px;
+  }
+  .wrap{max-width:1160px; margin:0 auto; display:flex; flex-direction:column; gap:44px}
+
+  /* ---------- header ---------- */
+  header.masthead{
+    padding:48px 0 0; display:flex; flex-direction:column; gap:14px;
+    border-bottom:1px solid var(--line); padding-bottom:28px;
+  }
+  .eyebrow{
+    font-family:var(--font-mono); font-size:11px; letter-spacing:.14em;
+    text-transform:uppercase; color:var(--ink-3);
+  }
+  h1{
+    font-family:var(--font-display); font-weight:400; font-size:clamp(38px,6vw,60px);
+    line-height:1.02; margin:0; letter-spacing:-.015em; text-wrap:balance;
+  }
+  h1 em{font-style:italic; color:var(--accent)}
+  .lede{max-width:64ch; color:var(--ink-2); font-size:17px; margin:0}
+  .facts{display:flex; flex-wrap:wrap; gap:8px; margin-top:6px}
+  .fact{
+    font-family:var(--font-mono); font-size:11.5px; letter-spacing:.03em;
+    background:var(--surface); border:1px solid var(--line); color:var(--ink-2);
+    padding:4px 9px; border-radius:2px;
+  }
+
+  /* ---------- sections ---------- */
+  section{display:flex; flex-direction:column; gap:18px}
+  h2{
+    font-family:var(--font-display); font-weight:400; font-size:27px;
+    margin:0; letter-spacing:-.01em; text-wrap:balance;
+  }
+  h3{font-size:14px; font-weight:650; margin:0; letter-spacing:.005em}
+  .sec-head{display:flex; flex-direction:column; gap:6px; border-top:1px solid var(--line); padding-top:22px}
+  .sec-head p{margin:0; color:var(--ink-2); max-width:66ch}
+  .label{
+    font-family:var(--font-mono); font-size:10.5px; letter-spacing:.14em;
+    text-transform:uppercase; color:var(--ink-3);
+  }
+
+  /* ---------- board area ---------- */
+  .play{display:grid; grid-template-columns:minmax(0,1fr) 316px; gap:22px; align-items:start}
+  @media (max-width:960px){ .play{grid-template-columns:minmax(0,1fr)} }
+
+  .board-panel{
+    background:var(--surface); border:1px solid var(--line); border-radius:4px;
+    box-shadow:var(--shadow); overflow:hidden;
+  }
+  .board-top{
+    display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+    padding:12px 16px; border-bottom:1px solid var(--line-soft); background:var(--surface-2);
+  }
+  .turn{display:flex; align-items:center; gap:9px; font-weight:600; font-size:13.5px}
+  .turn .dot{
+    width:16px; height:16px; border-radius:50%; display:inline-block;
+    background:var(--stone-w); border:1.5px solid var(--stone-w-edge);
+  }
+  .turn.black .dot{background:var(--stone-b); border-color:var(--stone-b-edge)}
+  .tally{display:flex; gap:14px; margin-left:auto; font-family:var(--font-mono); font-size:12px; color:var(--ink-2)}
+  .tally b{color:var(--ink); font-weight:600; font-variant-numeric:tabular-nums}
+
+  .board-stage{padding:14px 10px 6px; background:var(--surface); position:relative}
+  svg.board{display:block; width:100%; height:auto; touch-action:manipulation}
+  .board-face{fill:var(--board-face)}
+  .grid-line{stroke:var(--board-line-2); stroke-width:1.4}
+  .grid-line.major{stroke:var(--board-line); stroke-width:1.8}
+  .coord{fill:var(--ink-3); font-family:var(--font-mono); font-size:12px; text-anchor:middle; dominant-baseline:middle}
+  .strong-ring{fill:none; stroke:var(--accent); stroke-width:1.4; opacity:.45}
+
+  .stone{cursor:default}
+  .stone .disc{stroke-width:1.6}
+  .stone.w .disc{fill:var(--stone-w); stroke:var(--stone-w-edge)}
+  .stone.b .disc{fill:var(--stone-b); stroke:var(--stone-b-edge)}
+  .stone.playable{cursor:pointer}
+  .stone.playable .disc{stroke:var(--accent); stroke-width:2.4}
+  .stone.selected .disc{stroke:var(--accent); stroke-width:4}
+  .stone.doomed .disc{opacity:.5}
+  .doom-x{stroke:var(--danger); stroke-width:3; stroke-linecap:round}
+
+  .mark{cursor:pointer}
+  .mark .hit{fill:transparent}
+  .mark-paika{fill:none; stroke:var(--accent); stroke-width:2.4; stroke-dasharray:none}
+  .mark-blocked{fill:none; stroke:var(--ink-3); stroke-width:1.6; stroke-dasharray:3 4; opacity:.75; pointer-events:none}
+  .mark-a{fill:var(--approach)}
+  .mark-w{fill:var(--withdraw)}
+  .mark:hover .mark-a, .mark:hover .mark-w{stroke:var(--ink); stroke-width:2}
+  .mark:hover .mark-paika{stroke-width:4}
+  .seq-halo{fill:none; stroke:var(--approach); stroke-width:2; stroke-dasharray:4 5; opacity:.9}
+  .visited-mark{fill:none; stroke:var(--ink-3); stroke-width:1.4; opacity:.6}
+
+  g.focusable:focus{outline:none}
+  g.focusable:focus-visible .disc, g.focusable:focus-visible circle{stroke:var(--accent); stroke-width:4}
+
+  .board-bottom{
+    display:flex; gap:8px; flex-wrap:wrap; align-items:center;
+    padding:12px 16px; border-top:1px solid var(--line-soft); background:var(--surface-2);
+  }
+  button{
+    font:inherit; font-size:12.5px; font-weight:550; color:var(--ink);
+    background:var(--surface); border:1px solid var(--line); border-radius:3px;
+    padding:6px 11px; cursor:pointer; transition:background .12s, border-color .12s;
+  }
+  button:hover{background:var(--surface-2); border-color:var(--ink-3)}
+  button:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+  button.primary{background:var(--accent); border-color:var(--accent); color:var(--surface)}
+  :root[data-theme="dark"] button.primary, :root:not([data-theme="light"]) button.primary{color:#101312}
+  @media (prefers-color-scheme:light){ :root:not([data-theme="dark"]) button.primary{color:#F7F7F3} }
+  button.primary:hover{filter:brightness(1.08)}
+  button.danger{color:var(--danger); border-color:var(--danger)}
+  button[aria-pressed="true"]{background:var(--accent-soft); border-color:var(--accent); color:var(--accent-ink)}
+  .spacer{margin-left:auto}
+
+  .banner{
+    display:flex; gap:9px; align-items:flex-start;
+    padding:9px 16px; font-size:13px; border-top:1px solid var(--line-soft);
+  }
+  .banner.rule{background:var(--approach-soft); color:var(--ink)}
+  .banner.seq{background:var(--accent-soft); color:var(--ink)}
+  .banner.over{background:var(--danger-soft); color:var(--ink); font-weight:600}
+  .banner b{font-weight:650}
+  .banner .tag{font-family:var(--font-mono); font-size:10.5px; letter-spacing:.1em; text-transform:uppercase; opacity:.7; padding-top:2px}
+
+  /* ---------- rail ---------- */
+  .rail{display:flex; flex-direction:column; gap:14px}
+  .card{
+    background:var(--surface); border:1px solid var(--line); border-radius:4px;
+    padding:14px 15px; display:flex; flex-direction:column; gap:10px;
+  }
+  .card > .label{margin:0}
+  .legend{display:flex; flex-direction:column; gap:8px; font-size:12.5px}
+  .legend div{display:flex; gap:9px; align-items:center; color:var(--ink-2)}
+  .swatch{width:18px; height:18px; flex:0 0 18px; border-radius:50%; position:relative}
+  .sw-paika{border:2.4px solid var(--accent)}
+  .sw-a{background:var(--approach)}
+  .sw-w{background:var(--withdraw)}
+  .sw-dual{background:linear-gradient(90deg,var(--approach) 0 50%, var(--withdraw) 50% 100%)}
+  .sw-block{border:1.6px dashed var(--ink-3); opacity:.8}
+
+  .inspect{font-family:var(--font-mono); font-size:12px; color:var(--ink-2); line-height:1.7}
+  .inspect b{color:var(--ink); font-weight:600}
+
+  .log{
+    font-family:var(--font-mono); font-size:12px; max-height:190px; overflow-y:auto;
+    display:flex; flex-direction:column; gap:3px; color:var(--ink-2);
+  }
+  .log .ply{display:flex; gap:9px}
+  .log .n{color:var(--ink-3); min-width:22px; text-align:right; font-variant-numeric:tabular-nums}
+  .log .mv{color:var(--ink)}
+  .log .cap{color:var(--danger)}
+  .log .empty{color:var(--ink-3); font-style:italic; font-family:var(--font-body)}
+
+  .chat-log{
+    display:flex; flex-direction:column; gap:6px; max-height:150px; overflow-y:auto; font-size:12.5px;
+  }
+  .msg{display:flex; gap:7px; line-height:1.45}
+  .msg .who{font-weight:650; color:var(--accent); flex:0 0 auto}
+  .msg.them .who{color:var(--withdraw)}
+  .chat-form{display:flex; gap:6px}
+  .chat-form input{
+    flex:1; min-width:0; font:inherit; font-size:12.5px; color:var(--ink);
+    background:var(--bg); border:1px solid var(--line); border-radius:3px; padding:5px 8px;
+  }
+  .chat-form input:focus-visible{outline:2px solid var(--accent); outline-offset:1px}
+  .note{font-size:11.5px; color:var(--ink-3); margin:0}
+
+  /* ---------- content blocks ---------- */
+  .cards{display:grid; grid-template-columns:repeat(auto-fit,minmax(255px,1fr)); gap:14px}
+  .rule-card{
+    background:var(--surface); border:1px solid var(--line); border-radius:4px;
+    padding:15px 16px; display:flex; flex-direction:column; gap:7px;
+  }
+  .rule-card .num{
+    font-family:var(--font-mono); font-size:11px; color:var(--accent); letter-spacing:.08em;
+  }
+  .rule-card p{margin:0; font-size:13.5px; color:var(--ink-2)}
+  .rule-card p strong{color:var(--ink); font-weight:600}
+  code{
+    font-family:var(--font-mono); font-size:.9em; background:var(--surface-2);
+    border:1px solid var(--line-soft); border-radius:2px; padding:1px 4px; color:var(--ink);
+  }
+
+  .split{display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:22px; align-items:start}
+  @media (max-width:820px){ .split{grid-template-columns:minmax(0,1fr)} }
+  .diagram{
+    background:var(--surface); border:1px solid var(--line); border-radius:4px; padding:16px;
+    display:flex; flex-direction:column; gap:10px;
+  }
+  .diagram svg{width:100%; height:auto; display:block}
+  .diagram figcaption{font-size:12.5px; color:var(--ink-2); margin:0}
+  .ascii{
+    font-family:var(--font-mono); font-size:13px; line-height:1.75; white-space:pre;
+    overflow-x:auto; background:var(--surface); border:1px solid var(--line);
+    border-radius:4px; padding:14px 16px; color:var(--ink);
+  }
+
+  .table-scroll{overflow-x:auto; border:1px solid var(--line); border-radius:4px; background:var(--surface)}
+  table{border-collapse:collapse; width:100%; font-size:13.5px; min-width:520px}
+  th,td{text-align:left; padding:9px 14px; border-bottom:1px solid var(--line-soft); vertical-align:top}
+  thead th{
+    font-family:var(--font-mono); font-size:10.5px; letter-spacing:.12em; text-transform:uppercase;
+    color:var(--ink-3); font-weight:500; background:var(--surface-2);
+  }
+  tbody tr:last-child td{border-bottom:none}
+  td.n{font-family:var(--font-mono); color:var(--ink-3); width:34px; font-variant-numeric:tabular-nums}
+  td.why{color:var(--ink-2)}
+
+  ul.plain{margin:0; padding-left:18px; display:flex; flex-direction:column; gap:6px; color:var(--ink-2); font-size:13.5px}
+  ul.plain strong{color:var(--ink); font-weight:600}
+
+  footer{
+    border-top:1px solid var(--line); padding-top:20px; font-size:12.5px; color:var(--ink-3);
+    display:flex; flex-direction:column; gap:5px;
+  }
+  footer a{color:var(--ink-2)}
+
+  @media (prefers-reduced-motion:reduce){ *{transition:none !important; animation:none !important} }
+</style>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <div class="eyebrow">PPD 2026.2 · IFCE · Projeto de Sockets</div>
+    <h1>Fanorona <em>Sivy</em></h1>
+    <p class="lede">Referência viva do jogo antes de escrever uma linha de código: a geometria exata do tabuleiro, a posição inicial, e um motor de regras clicável que mostra <em>quais</em> jogadas são legais e <em>por quê</em>.</p>
+    <div class="facts">
+      <span class="fact">45 pontos · 9 × 5</span>
+      <span class="fact">22 + 22 peças</span>
+      <span class="fact">centro e3 vazio</span>
+      <span class="fact">brancas começam</span>
+      <span class="fact">captura obrigatória</span>
+    </div>
+  </header>
+
+  <section>
+    <div class="sec-head">
+      <span class="label">Tabuleiro interativo</span>
+      <h2>Clique numa peça e veja a regra acontecer</h2>
+      <p>Motor completo: captura obrigatória, aproximação × afastamento, sequências com bloqueio de direção repetida e de casa revisitada. É a mesma lógica que precisa morar no servidor.</p>
+    </div>
+
+    <div class="play">
+      <div class="board-panel">
+        <div class="board-top">
+          <div class="turn" id="turnBox"><span class="dot"></span><span id="turnText">Vez das brancas</span></div>
+          <div class="tally">
+            <span>brancas <b id="tallyW">22</b></span>
+            <span>pretas <b id="tallyB">22</b></span>
+          </div>
+        </div>
+
+        <div class="board-stage">
+          <svg class="board" id="svg" viewBox="0 0 760 424" role="img" aria-label="Tabuleiro de Fanorona 9 por 5"></svg>
+        </div>
+
+        <div id="banners"></div>
+
+        <div class="board-bottom">
+          <button id="btnStop" class="primary" hidden>Encerrar jogada</button>
+          <button id="btnCancel" hidden>Cancelar seleção</button>
+          <button id="btnDemo">Demo: d3–e3 (A ou W)</button>
+          <button id="btnReset">Posição inicial</button>
+          <button id="btnStrong" aria-pressed="false">Pontos fortes</button>
+          <button id="btnCoords" aria-pressed="true">Coordenadas</button>
+          <button id="btnResign" class="danger spacer">Desistir</button>
+        </div>
+      </div>
+
+      <div class="rail">
+        <div class="card">
+          <span class="label">Legenda dos destinos</span>
+          <div class="legend">
+            <div><span class="swatch sw-paika"></span> Paika — move sem capturar</div>
+            <div><span class="swatch sw-a"></span> Captura por aproximação</div>
+            <div><span class="swatch sw-w"></span> Captura por afastamento</div>
+            <div><span class="swatch sw-dual"></span> Ambas possíveis — escolha metade</div>
+            <div><span class="swatch sw-block"></span> Bloqueado (captura obrigatória)</div>
+          </div>
+          <p class="note">Passe o mouse sobre um destino para ver quais peças caem.</p>
+        </div>
+
+        <div class="card">
+          <span class="label">Inspetor do ponto</span>
+          <div class="inspect" id="inspect">Passe o mouse sobre o tabuleiro.</div>
+        </div>
+
+        <div class="card">
+          <span class="label">Histórico de lances</span>
+          <div class="log" id="log"><span class="empty">Nenhum lance ainda.</span></div>
+        </div>
+
+        <div class="card">
+          <span class="label">Chat da partida</span>
+          <div class="chat-log" id="chatLog">
+            <div class="msg them"><span class="who">Oponente</span><span>boa sorte</span></div>
+          </div>
+          <form class="chat-form" id="chatForm">
+            <input id="chatInput" type="text" placeholder="Mensagem…" aria-label="Mensagem do chat" maxlength="140" autocomplete="off">
+            <button type="submit">Enviar</button>
+          </form>
+          <p class="note">Maquete local de layout — sem rede. No projeto real o chat trafega na mesma conexão WebSocket e continua ativo no turno do adversário.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <span class="label">Geometria</span>
+      <h2>Pontos fortes, pontos fracos, e a diagonal que quase todo mundo erra</h2>
+      <p>Errar as diagonais é o jeito mais rápido de o tabuleiro parecer errado à primeira vista — e de transformar todo ponto num ponto forte.</p>
+    </div>
+
+    <div class="split">
+      <figure class="diagram">
+        <svg viewBox="0 0 340 200" id="cellDiagram" role="img" aria-label="Diagrama das diagonais alternadas"></svg>
+        <figcaption><strong>Uma</strong> diagonal por célula, nunca duas. Ela liga os dois cantos fortes daquela célula, então a direção alterna em xadrez: <code>/</code>, <code>\</code>, <code>/</code>, <code>\</code>. Cada ponto fraco (vazado) acaba no centro de um losango de quatro pontos fortes (cheios).</figcaption>
+      </figure>
+
+      <div style="display:flex; flex-direction:column; gap:14px">
+        <div class="rule-card">
+          <span class="num">A REGRA EM UMA LINHA</span>
+          <p><strong>Forte</strong> quando <code>(coluna + linha)</code> é par — até <strong>8 vizinhos</strong>. <strong>Fraco</strong> quando é ímpar — só <strong>4 vizinhos</strong>, na horizontal e na vertical.</p>
+          <p>Confere: <code>e2</code> é 5+2=7, ímpar, fraco. <code>e3</code> é 5+3=8, par, forte. Os quatro cantos e o centro são fortes.</p>
+        </div>
+        <div class="rule-card">
+          <span class="num">PARA DESENHAR</span>
+          <p>Célula com canto inferior-esquerdo em <code>(c, l)</code>:</p>
+          <p>se <code>(c+l)</code> par → diagonal de <code>(c,l)</code> a <code>(c+1,l+1)</code><br>se <code>(c+l)</code> ímpar → diagonal de <code>(c+1,l)</code> a <code>(c,l+1)</code></p>
+          <p>São 32 células e 32 diagonais. Uma consequência útil: toda diagonal liga forte com forte, então a paridade nunca muda num passo diagonal.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="split">
+      <div style="display:flex; flex-direction:column; gap:10px">
+        <h3>Posição inicial</h3>
+        <div class="ascii">5   ● ● ● ● ● ● ● ● ●    9 pretas
+4   ● ● ● ● ● ● ● ● ●    9 pretas
+3   ● ○ ● ○ · ● ○ ● ○    alternada, centro vazio
+2   ○ ○ ○ ○ ○ ○ ○ ○ ○    9 brancas
+1   ○ ○ ○ ○ ○ ○ ○ ○ ○    9 brancas
+    a b c d e f g h i</div>
+        <p class="note">9 + 9 + 4 = 22 de cada lado. A posição tem simetria de rotação de 180°: <code>a3</code> preta ↔ <code>i3</code> branca.</p>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:10px">
+        <h3>Por que a linha 3 é assim</h3>
+        <ul class="plain">
+          <li>Brancas ocupam as linhas 1 e 2 inteiras, mais <code>b3 d3 g3 i3</code>.</li>
+          <li>Pretas ocupam as linhas 4 e 5 inteiras, mais <code>a3 c3 f3 h3</code>.</li>
+          <li><strong>Brancas embaixo, pretas em cima. Brancas jogam primeiro.</strong></li>
+          <li>Essa alternância é o que faz o <strong>primeiro lance já ser ambíguo</strong>: <code>d3–e3</code> captura <code>f3</code> como aproximação ou <code>c3</code> como afastamento, e o jogador escolhe. Clique em <code>d3</code> no tabuleiro acima.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <span class="label">Regras</span>
+      <h2>As seis que derrubam implementações</h2>
+      <p>Movimento simples e captura por aproximação todo mundo acerta. O resto é onde o projeto ganha ou perde a nota de funcionalidade.</p>
+    </div>
+    <div class="cards">
+      <div class="rule-card">
+        <span class="num">01 · OBRIGAÇÃO</span>
+        <h3>Captura é obrigatória</h3>
+        <p>Existindo qualquer captura no turno, jogar <strong>paika</strong> é proibido — e não só com aquela peça: com <em>nenhuma</em> peça.</p>
+      </div>
+      <div class="rule-card">
+        <span class="num">02 · EXCLUSÃO</span>
+        <h3>Aproximação ou afastamento, nunca as duas</h3>
+        <p>Se o mesmo movimento pode capturar dos dois jeitos, o jogador <strong>escolhe um</strong>, e só aquele lado cai. Acontece já no lance de abertura.</p>
+      </div>
+      <div class="rule-card">
+        <span class="num">03 · ALCANCE</span>
+        <h3>Só na extensão da linha</h3>
+        <p>Capturam-se a primeira peça inimiga <strong>e todas as seguidas atrás dela</strong>, até um ponto vazio ou uma peça própria. Não existe captura "na esquina".</p>
+      </div>
+      <div class="rule-card">
+        <span class="num">04 · SEQUÊNCIA</span>
+        <h3>Sem repetir casa</h3>
+        <p>Durante a sequência, a peça <strong>não pode chegar duas vezes ao mesmo ponto</strong> — incluindo a casa de onde saiu.</p>
+      </div>
+      <div class="rule-card">
+        <span class="num">05 · SEQUÊNCIA</span>
+        <h3>Sem repetir direção seguida</h3>
+        <p>Proibido mover <strong>duas vezes seguidas na mesma direção</strong>. Pode repetir se houver outra direção no meio. A direção do turno anterior não conta.</p>
+      </div>
+      <div class="rule-card">
+        <span class="num">06 · SEQUÊNCIA</span>
+        <h3>Continuar é opcional</h3>
+        <p>Diferente de damas: depois de capturar, o jogador <strong>pode parar quando quiser</strong>. Toda a cadeia conta como <strong>um único turno</strong>.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <span class="label">Interface</span>
+      <h2>O que a tela precisa ter</h2>
+      <p>A UI vale 0–10 e, segundo o enunciado, <em>só pontua quando a funcionalidade por trás existe</em>. Esta é a lista mínima.</p>
+    </div>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>#</th><th>Elemento</th><th>Por quê</th></tr></thead>
+        <tbody>
+          <tr><td class="n">1</td><td>Tabuleiro 9×5 com diagonais alternadas, peças sobre as interseções</td><td class="why">É o produto</td></tr>
+          <tr><td class="n">2</td><td>Indicador de turno e de quem começou</td><td class="why">Exigido pelo enunciado</td></tr>
+          <tr><td class="n">3</td><td>Seleção de peça com destaque dos destinos legais</td><td class="why">Exigido — movimentação</td></tr>
+          <tr><td class="n">4</td><td>Marcação distinta por tipo: paika, aproximação, afastamento</td><td class="why">Regra 02</td></tr>
+          <tr><td class="n">5</td><td>Seletor quando o destino aceita os dois tipos</td><td class="why">Regra 02 — sem isso o lance é indefinido</td></tr>
+          <tr><td class="n">6</td><td>Prévia das peças que vão cair, antes de confirmar</td><td class="why">Mostra domínio da regra na defesa</td></tr>
+          <tr><td class="n">7</td><td>Modo sequência: peça travada, direção bloqueada, botão Encerrar jogada</td><td class="why">Regras 04, 05, 06</td></tr>
+          <tr><td class="n">8</td><td>Placar de capturas 22 → 0 dos dois lados</td><td class="why">Leitura do vídeo do professor</td></tr>
+          <tr><td class="n">9</td><td>Histórico em notação <code>b2-c2A</code></td><td class="why">Facilita explicar o código oralmente</td></tr>
+          <tr><td class="n">10</td><td>Chat sempre ativo, inclusive no turno do adversário</td><td class="why">Exigido pelo enunciado</td></tr>
+          <tr><td class="n">11</td><td>Desistir, com confirmação</td><td class="why">Exigido pelo enunciado</td></tr>
+          <tr><td class="n">12</td><td>Fim de partida com o motivo declarado</td><td class="why">Exigido — indicação de vencedor</td></tr>
+          <tr><td class="n">13</td><td>Status da conexão: conectado, esperando oponente, queda</td><td class="why">É um projeto de sockets — a rede visível é nota</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <span class="label">Fim de jogo</span>
+      <h2>Condição de vitória, e a divergência entre as fontes</h2>
+    </div>
+    <div class="split">
+      <ul class="plain">
+        <li><strong>Vitória:</strong> o adversário fica com zero peças.</li>
+        <li><strong>Sem lance legal:</strong> quem não tem jogada perde. Não há documentação tradicional; é a convenção adotada na literatura.</li>
+        <li><strong>Desistência:</strong> encerra a partida a favor do adversário.</li>
+        <li><strong>Empate:</strong> na prática, repetição de posição. Fanorona foi resolvido em 2007 — com jogo perfeito, <strong>é empate</strong>.</li>
+      </ul>
+      <div class="rule-card">
+        <span class="num">DECISÃO TOMADA</span>
+        <h3>O vídeo e o enunciado não batem</h3>
+        <p>O vídeo do professor encerra dizendo que vence <em>"aquele que capturar mais peças"</em>, mas o enunciado e o próprio corpo do vídeo dizem <em>"capturar todas as peças do outro jogador"</em>.</p>
+        <p>Implementar <strong>capturar todas</strong>, e manter o <strong>placar de capturas visível o tempo todo</strong>. Atende à leitura do vídeo sem inventar vitória por pontos.</p>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div>Regras conferidas contra o enunciado do Prof. Cidcley T. de Souza, a transcrição do vídeo indicado no PDF, a <a href="https://en.wikipedia.org/wiki/Fanorona">Wikipedia</a> e <em>Best Play in Fanorona Leads to Draw</em> (Schadd, Winands, Uiterwijk, van den Herik, Bergsma — 2008).</div>
+    <div>Entrega 02/09/2026 até 13h · assunto do e-mail “Projeto Sockets” · apresentação pessoal.</div>
+  </footer>
+</div>
+
+<script>
+(() => {
+  "use strict";
+  const COLS = 9, ROWS = 5, EMPTY = 0, W = 1, B = 2;
+  const FILES = "abcdefghi";
+  const DIRS = [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]];
+
+  const inb  = (c,r) => c >= 1 && c <= COLS && r >= 1 && r <= ROWS;
+  const idx  = (c,r) => (r-1)*COLS + (c-1);
+  const isStrong = (c,r) => ((c + r) % 2) === 0;
+  const dirsOf = (c,r) => isStrong(c,r) ? DIRS : DIRS.slice(0,4);
+  const name = (c,r) => FILES[c-1] + r;
+  const key  = (c,r) => c + "," + r;
+  const foe  = p => p === W ? B : W;
+
+  // ---------- state ----------
+  let board, turn, seq, log, over, sel, hover, showStrong = false, showCoords = true;
+
+  function reset(){
+    board = new Int8Array(COLS*ROWS);
+    for (let c = 1; c <= COLS; c++){
+      board[idx(c,1)] = W; board[idx(c,2)] = W;
+      board[idx(c,4)] = B; board[idx(c,5)] = B;
+      // linha 3 alterna, mas a paridade inverte depois do centro (simetria de 180°)
+      if (c !== 5) board[idx(c,3)] = ((c < 5) === (c % 2 === 1)) ? B : W;
+    }
+    turn = W; seq = null; log = []; over = null; sel = null; hover = null;
+    render();
+  }
+
+  // ---------- move generation ----------
+  function lineCapture(c, r, dc, dr, enemy){
+    const out = [];
+    let x = c, y = r;
+    while (true){
+      x += dc; y += dr;
+      if (!inb(x,y) || board[idx(x,y)] !== enemy) break;
+      out.push([x,y]);
+    }
+    return out;
+  }
+
+  // all moves for a piece at (c,r); capturesOnly filters out paika
+  function movesFrom(c, r, capturesOnly, banDir, visited){
+    const me = board[idx(c,r)], enemy = foe(me), out = [];
+    for (const [dc,dr] of dirsOf(c,r)){
+      if (banDir && banDir[0] === dc && banDir[1] === dr) continue;
+      const tc = c + dc, tr = r + dr;
+      if (!inb(tc,tr) || board[idx(tc,tr)] !== EMPTY) continue;
+      if (visited && visited.has(key(tc,tr))) continue;
+
+      const ac = tc + dc, ar = tr + dr;
+      const wc = c - dc,  wr = r - dr;
+      const capA = (inb(ac,ar) && board[idx(ac,ar)] === enemy) ? lineCapture(tc,tr,dc,dr,enemy) : [];
+      const capW = (inb(wc,wr) && board[idx(wc,wr)] === enemy) ? lineCapture(c,r,-dc,-dr,enemy) : [];
+
+      if (capA.length) out.push({from:[c,r], to:[tc,tr], dir:[dc,dr], type:"A", cap:capA});
+      if (capW.length) out.push({from:[c,r], to:[tc,tr], dir:[dc,dr], type:"W", cap:capW});
+      if (!capA.length && !capW.length && !capturesOnly) out.push({from:[c,r], to:[tc,tr], dir:[dc,dr], type:"P", cap:[]});
+    }
+    return out;
+  }
+
+  function legalMoves(){
+    if (over) return [];
+    if (seq) return movesFrom(seq.c, seq.r, true, seq.lastDir, seq.visited);
+    const caps = [], paika = [];
+    for (let r = 1; r <= ROWS; r++) for (let c = 1; c <= COLS; c++){
+      if (board[idx(c,r)] !== turn) continue;
+      for (const m of movesFrom(c, r, false, null, null)) (m.type === "P" ? paika : caps).push(m);
+    }
+    return caps.length ? caps : paika;
+  }
+
+  // paika destinations that exist but are illegal because a capture is available
+  function blockedFrom(c, r){
+    if (seq) return [];
+    return movesFrom(c, r, false, null, null).filter(m => m.type === "P");
+  }
+
+  function countPieces(p){
+    let n = 0; for (let i = 0; i < board.length; i++) if (board[i] === p) n++;
+    return n;
+  }
+
+  // ---------- applying ----------
+  function apply(m){
+    const me = board[idx(m.from[0], m.from[1])];
+    board[idx(m.from[0], m.from[1])] = EMPTY;
+    board[idx(m.to[0], m.to[1])] = me;
+    for (const [x,y] of m.cap) board[idx(x,y)] = EMPTY;
+
+    const step = name(m.to[0], m.to[1]) + (m.type === "P" ? "" : m.type);
+
+    if (seq){
+      seq.notation.push(step);
+      seq.caps += m.cap.length;
+      seq.visited.add(key(m.to[0], m.to[1]));
+      seq.c = m.to[0]; seq.r = m.to[1]; seq.lastDir = m.dir;
+    } else {
+      const visited = new Set([key(m.from[0],m.from[1]), key(m.to[0],m.to[1])]);
+      seq = {
+        player: me, c:m.to[0], r:m.to[1], lastDir:m.dir, visited,
+        notation:[name(m.from[0],m.from[1]), step], caps:m.cap.length,
+        opening: m.type !== "P"
+      };
+    }
+    sel = null; hover = null;
+
+    if (m.type === "P" || movesFrom(seq.c, seq.r, true, seq.lastDir, seq.visited).length === 0) endTurn();
+    render();
+  }
+
+  function endTurn(){
+    if (!seq) return;
+    log.push({ player: seq.player, text: seq.notation.join("-"), caps: seq.caps });
+    const next = foe(seq.player);
+    seq = null; sel = null; hover = null; turn = next;
+
+    if (countPieces(next) === 0){
+      over = { winner: foe(next), why: "capturou todas as peças" };
+    } else if (legalMoves().length === 0){
+      over = { winner: foe(next), why: "adversário sem lance legal" };
+    }
+  }
+
+  // ---------- geometry ----------
+  const PAD = 44, STEP = 84, R = 25;
+  const px = c => PAD + (c-1) * STEP;
+  const py = r => PAD + (ROWS - r) * STEP;
+  const SVGNS = "http://www.w3.org/2000/svg";
+  const el = (tag, attrs, cls) => {
+    const n = document.createElementNS(SVGNS, tag);
+    for (const k in attrs) n.setAttribute(k, attrs[k]);
+    if (cls) n.setAttribute("class", cls);
+    return n;
+  };
+
+  const svg = document.getElementById("svg");
+
+  function render(){
+    // ---- board svg ----
+    svg.textContent = "";
+    svg.appendChild(el("rect", {x:PAD-24, y:PAD-24, width:(COLS-1)*STEP+48, height:(ROWS-1)*STEP+48, rx:4}, "board-face"));
+
+    for (let r = 1; r <= ROWS; r++)
+      svg.appendChild(el("line", {x1:px(1), y1:py(r), x2:px(COLS), y2:py(r)}, "grid-line major"));
+    for (let c = 1; c <= COLS; c++)
+      svg.appendChild(el("line", {x1:px(c), y1:py(1), x2:px(c), y2:py(ROWS)}, "grid-line major"));
+    for (let c = 1; c < COLS; c++) for (let r = 1; r < ROWS; r++){
+      const a = ((c + r) % 2 === 0) ? [[c,r],[c+1,r+1]] : [[c+1,r],[c,r+1]];
+      svg.appendChild(el("line", {x1:px(a[0][0]), y1:py(a[0][1]), x2:px(a[1][0]), y2:py(a[1][1])}, "grid-line"));
+    }
+
+    if (showStrong)
+      for (let c = 1; c <= COLS; c++) for (let r = 1; r <= ROWS; r++)
+        if (isStrong(c,r)) svg.appendChild(el("circle", {cx:px(c), cy:py(r), r:R+7}, "strong-ring"));
+
+    if (showCoords){
+      for (let c = 1; c <= COLS; c++){
+        const t = el("text", {x:px(c), y:py(1)+50}, "coord"); t.textContent = FILES[c-1]; svg.appendChild(t);
+      }
+      for (let r = 1; r <= ROWS; r++){
+        const t = el("text", {x:px(1)-32, y:py(r)}, "coord"); t.textContent = r; svg.appendChild(t);
+      }
+    }
+
+    if (seq)
+      for (const k of seq.visited){
+        const [c,r] = k.split(",").map(Number);
+        if (c === seq.c && r === seq.r) continue;
+        svg.appendChild(el("circle", {cx:px(c), cy:py(r), r:9}, "visited-mark"));
+      }
+
+    const moves = legalMoves();
+    const movable = new Set(moves.map(m => key(m.from[0], m.from[1])));
+    const doomed = new Set();
+    if (hover) for (const [x,y] of hover.cap) doomed.add(key(x,y));
+
+    // stones
+    for (let r = ROWS; r >= 1; r--) for (let c = 1; c <= COLS; c++){
+      const p = board[idx(c,r)];
+      if (p === EMPTY) continue;
+      const playable = !over && movable.has(key(c,r));
+      const isSel = sel && sel[0] === c && sel[1] === r;
+      const isDoomed = doomed.has(key(c,r));
+      const cls = ["stone", p === W ? "w" : "b", playable ? "playable" : "", isSel ? "selected" : "", isDoomed ? "doomed" : "", playable ? "focusable" : ""].join(" ");
+      const g = el("g", {}, cls);
+      if (playable){ g.setAttribute("tabindex","0"); g.setAttribute("role","button");
+                     g.setAttribute("aria-label", "Peça em " + name(c,r)); }
+      g.appendChild(el("circle", {cx:px(c), cy:py(r), r:R}, "disc"));
+      if (isDoomed){
+        const d = 11;
+        g.appendChild(el("line", {x1:px(c)-d, y1:py(r)-d, x2:px(c)+d, y2:py(r)+d}, "doom-x"));
+        g.appendChild(el("line", {x1:px(c)+d, y1:py(r)-d, x2:px(c)-d, y2:py(r)+d}, "doom-x"));
+      }
+      if (playable){
+        const act = () => { sel = [c,r]; hover = null; render(); };
+        g.addEventListener("click", act);
+        g.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " "){ e.preventDefault(); act(); } });
+      }
+      g.addEventListener("mouseenter", () => inspect(c,r));
+      svg.appendChild(g);
+    }
+
+    // markers for the selected piece
+    if (sel && !over){
+      const mine = moves.filter(m => m.from[0] === sel[0] && m.from[1] === sel[1]);
+      const byDest = new Map();
+      for (const m of mine){
+        const k = key(m.to[0], m.to[1]);
+        if (!byDest.has(k)) byDest.set(k, []);
+        byDest.get(k).push(m);
+      }
+      // blocked paika destinations (capture is mandatory)
+      if (mine.length && mine[0].type !== "P")
+        for (const b of blockedFrom(sel[0], sel[1])){
+          if (byDest.has(key(b.to[0], b.to[1]))) continue;
+          svg.appendChild(el("circle", {cx:px(b.to[0]), cy:py(b.to[1]), r:15}, "mark-blocked"));
+        }
+
+      for (const [k, list] of byDest){
+        const [c,r] = k.split(",").map(Number);
+        const x = px(c), y = py(r);
+        const a = list.find(m => m.type === "A"), w = list.find(m => m.type === "W");
+
+        if (a && w){
+          addMark(el("path", {d:`M ${x} ${y-16} A 16 16 0 0 0 ${x} ${y+16} Z`}, "mark-a"), a, c, r);
+          addMark(el("path", {d:`M ${x} ${y-16} A 16 16 0 0 1 ${x} ${y+16} Z`}, "mark-w"), w, c, r);
+        } else if (a || w){
+          const m = a || w;
+          addMark(el("circle", {cx:x, cy:y, r:16}, m.type === "A" ? "mark-a" : "mark-w"), m, c, r);
+        } else {
+          addMark(el("circle", {cx:x, cy:y, r:13}, "mark-paika"), list[0], c, r);
+        }
+      }
+    }
+
+    function addMark(shape, m, c, r){
+      const g = el("g", {tabindex:0, role:"button",
+        "aria-label": describe(m)}, "mark focusable");
+      g.appendChild(shape);
+      g.appendChild(el("circle", {cx:px(c), cy:py(r), r:20}, "hit"));
+      const go = () => apply(m);
+      g.addEventListener("click", go);
+      g.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " "){ e.preventDefault(); go(); } });
+      g.addEventListener("mouseenter", () => { hover = m; inspectMove(m); render(); });
+      g.addEventListener("mouseleave", () => { if (hover === m){ hover = null; render(); } });
+      svg.appendChild(g);
+    }
+
+    renderChrome(moves);
+  }
+
+  function describe(m){
+    const dest = name(m.to[0], m.to[1]);
+    if (m.type === "P") return "Mover para " + dest + " sem capturar";
+    const kind = m.type === "A" ? "Aproximação" : "Afastamento";
+    return kind + " para " + dest + ", captura " + m.cap.map(([x,y]) => name(x,y)).join(", ");
+  }
+
+  function inspect(c,r){
+    const p = board[idx(c,r)];
+    const who = p === W ? "peça branca" : p === B ? "peça preta" : "vazio";
+    const n = dirsOf(c,r).filter(([dc,dr]) => inb(c+dc, r+dr)).length;
+    document.getElementById("inspect").innerHTML =
+      `<b>${name(c,r)}</b> · ${who}<br>ponto <b>${isStrong(c,r) ? "forte" : "fraco"}</b> · ${n} vizinhos<br>coluna ${c} + linha ${r} = ${c+r} (${(c+r)%2 ? "ímpar" : "par"})`;
+  }
+
+  function inspectMove(m){
+    const caps = m.cap.length ? m.cap.map(([x,y]) => name(x,y)).join(" ") : "—";
+    const kind = m.type === "A" ? "aproximação" : m.type === "W" ? "afastamento" : "paika";
+    document.getElementById("inspect").innerHTML =
+      `<b>${name(m.from[0],m.from[1])}–${name(m.to[0],m.to[1])}${m.type === "P" ? "" : m.type}</b><br>${kind}<br>captura: <b>${caps}</b>`;
+  }
+
+  function renderChrome(moves){
+    const wCount = countPieces(W), bCount = countPieces(B);
+    document.getElementById("tallyW").textContent = wCount;
+    document.getElementById("tallyB").textContent = bCount;
+
+    const active = seq ? seq.player : turn;
+    const tb = document.getElementById("turnBox");
+    tb.className = "turn" + (active === B ? " black" : "");
+    document.getElementById("turnText").textContent =
+      over ? "Partida encerrada" : (active === W ? "Vez das brancas" : "Vez das pretas");
+
+    // banners
+    const bs = document.getElementById("banners");
+    bs.textContent = "";
+    const add = (cls, tag, html) => {
+      const d = document.createElement("div");
+      d.className = "banner " + cls;
+      d.innerHTML = `<span class="tag">${tag}</span><span>${html}</span>`;
+      bs.appendChild(d);
+    };
+    if (over){
+      add("over", "fim", `Vitória das <b>${over.winner === W ? "brancas" : "pretas"}</b> — ${over.why}.`);
+    } else if (seq){
+      const cont = moves.length;
+      add("seq", "sequência",
+        `Peça travada em <b>${name(seq.c, seq.r)}</b>, ${seq.caps} captura${seq.caps === 1 ? "" : "s"} até aqui. ` +
+        (cont ? `${cont} continuação${cont === 1 ? "" : "es"} possíve${cont === 1 ? "l" : "is"} — continuar é <b>opcional</b>.` : "Sem continuação."));
+    } else if (moves.length && moves[0].type !== "P"){
+      add("rule", "obrigatório", `Há captura disponível: <b>jogadas paika estão proibidas</b> neste turno.`);
+    }
+
+    document.getElementById("btnStop").hidden = !seq;
+    document.getElementById("btnCancel").hidden = !sel || !!seq;
+
+    // log
+    const lg = document.getElementById("log");
+    lg.textContent = "";
+    if (!log.length){
+      const s = document.createElement("span"); s.className = "empty";
+      s.textContent = "Nenhum lance ainda."; lg.appendChild(s);
+    } else {
+      log.forEach((e, i) => {
+        const row = document.createElement("div"); row.className = "ply";
+        row.innerHTML = `<span class="n">${i+1}.</span><span class="mv">${e.player === W ? "○" : "●"} ${e.text}</span>` +
+                        (e.caps ? `<span class="cap">−${e.caps}</span>` : "");
+        lg.appendChild(row);
+      });
+      lg.scrollTop = lg.scrollHeight;
+    }
+  }
+
+  // ---------- controls ----------
+  document.getElementById("btnStop").addEventListener("click", () => { endTurn(); render(); });
+  document.getElementById("btnCancel").addEventListener("click", () => { sel = null; hover = null; render(); });
+  document.getElementById("btnReset").addEventListener("click", reset);
+  document.getElementById("btnDemo").addEventListener("click", () => {
+    reset(); sel = [4,3]; render();
+    document.getElementById("inspect").innerHTML =
+      "<b>d3</b> selecionada.<br>O destino <b>e3</b> aparece dividido:<br>metade laranja = aproximação (cai f3)<br>metade violeta = afastamento (cai c3)";
+  });
+  document.getElementById("btnResign").addEventListener("click", () => {
+    if (over) return;
+    const who = seq ? seq.player : turn;
+    over = { winner: foe(who), why: (who === W ? "brancas" : "pretas") + " desistiram" };
+    seq = null; sel = null; hover = null; render();
+  });
+  const toggle = (id, get, set) => {
+    const b = document.getElementById(id);
+    b.addEventListener("click", () => { set(!get()); b.setAttribute("aria-pressed", String(get())); render(); });
+  };
+  toggle("btnStrong", () => showStrong, v => showStrong = v);
+  toggle("btnCoords", () => showCoords, v => showCoords = v);
+
+  // ---------- chat mock ----------
+  document.getElementById("chatForm").addEventListener("submit", e => {
+    e.preventDefault();
+    const inp = document.getElementById("chatInput");
+    const text = inp.value.trim();
+    if (!text) return;
+    const d = document.createElement("div");
+    d.className = "msg";
+    d.innerHTML = `<span class="who">Você</span><span></span>`;
+    d.lastChild.textContent = text;
+    const box = document.getElementById("chatLog");
+    box.appendChild(d); box.scrollTop = box.scrollHeight;
+    inp.value = "";
+  });
+
+  // ---------- small diagram ----------
+  (() => {
+    const d = document.getElementById("cellDiagram");
+    const S = 44, OX = 40, OY = 28;
+    const X = c => OX + (c-1)*S, Y = r => OY + (4-r)*S;
+    for (let r = 1; r <= 4; r++) d.appendChild(el("line", {x1:X(1), y1:Y(r), x2:X(6), y2:Y(r)}, "grid-line major"));
+    for (let c = 1; c <= 6; c++) d.appendChild(el("line", {x1:X(c), y1:Y(1), x2:X(c), y2:Y(4)}, "grid-line major"));
+    for (let c = 1; c < 6; c++) for (let r = 1; r < 4; r++){
+      const a = ((c + r) % 2 === 0) ? [[c,r],[c+1,r+1]] : [[c+1,r],[c,r+1]];
+      d.appendChild(el("line", {x1:X(a[0][0]), y1:Y(a[0][1]), x2:X(a[1][0]), y2:Y(a[1][1])}, "grid-line"));
+    }
+    for (let c = 1; c <= 6; c++) for (let r = 1; r <= 4; r++){
+      const strong = ((c + r) % 2) === 0;
+      const n = el("circle", {cx:X(c), cy:Y(r), r:6.5,
+        fill: strong ? "var(--accent)" : "var(--surface)",
+        stroke: strong ? "var(--accent)" : "var(--ink-3)", "stroke-width":1.8});
+      d.appendChild(n);
+    }
+  })();
+
+  reset();
+})();
+</script>

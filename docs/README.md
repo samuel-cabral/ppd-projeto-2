@@ -9,7 +9,7 @@ servidor autoritativo, chat em tempo real durante toda a partida e **paralelismo
 | **Instituição** | IFCE |
 | **Professor** | Cidcley T. de Souza |
 | **Aluno** | Samuel Cabral Lima |
-| **Entrega** | 02/09/2026 até 13h — assunto *Projeto Sockets* |
+| **Entrega** | 09/09/2026 até 13h — assunto *Projeto Sockets* (prazo original 02/09, renegociado em 03/09) |
 | **Stack** | Node.js · TypeScript · React · WebSocket (`ws`) · `worker_threads` |
 
 ---
@@ -18,7 +18,8 @@ servidor autoritativo, chat em tempo real durante toda a partida e **paralelismo
 
 | Pergunta | Onde está a resposta |
 |---|---|
-| **Onde estão as threads?** | [`03-concorrencia.md`](03-concorrencia.md) — e há uma demonstração ao vivo do que acontece sem elas |
+| **Onde estão as threads?** | [`03-concorrencia.md`](03-concorrencia.md) — o que já é demonstrável hoje (§4.1) e a demonstração de bloqueio planejada (§4.2) |
+| Cada requisito do enunciado está onde no código? | [`07-mapa-de-avaliacao.md` §3](07-mapa-de-avaliacao.md) — matriz de rastreabilidade |
 | Por que WebSocket e não socket TCP cru? | [`adr/001-websocket-em-vez-de-tcp-cru.md`](adr/001-websocket-em-vez-de-tcp-cru.md) |
 | Como o cliente é impedido de trapacear? | [`02-arquitetura.md` §3](02-arquitetura.md) — o cliente não conhece as regras |
 | Qual o formato das mensagens? | [`04-protocolo.md`](04-protocolo.md) |
@@ -38,7 +39,8 @@ Leia nesta ordem. Cada arquivo trata de um assunto só.
 | 03 | [Concorrência e threads](03-concorrencia.md) | Event loop × `worker_threads`, o que cada thread faz, a demonstração empírica |
 | 04 | [Protocolo](04-protocolo.md) | Mensagens WebSocket, mensagens thread↔thread, handshake, reconexão, erros |
 | 05 | [Estratégia de testes](05-testes.md) | Como o motor de regras é provado correto contra a literatura |
-| 06 | [Plano de implementação](06-plano-de-implementacao.md) | Fases, cronograma até 02/09, critérios de pronto, ordem de corte |
+| 06 | [Plano de implementação](06-plano-de-implementacao.md) | Fases, cronograma até 09/09, critérios de pronto, ordem de corte |
+| 07 | [Mapa de avaliação](07-mapa-de-avaliacao.md) | Cada requisito do enunciado → onde vive no código → como se demonstra. Replanejamento de 03/09 |
 | — | [Decisões de arquitetura (ADRs)](adr/) | Cada decisão relevante, com alternativas descartadas e o porquê |
 
 ### Material de apoio
@@ -53,18 +55,24 @@ Leia nesta ordem. Cada arquivo trata de um assunto só.
 
 ## Como executar
 
-> Preenchido na Fase 6 do [plano de implementação](06-plano-de-implementacao.md).
-> Os comandos abaixo são o alvo acordado no projeto.
-
 ```bash
 npm install
-npm run build     # compila cliente (Vite) e servidor (tsc)
+npm run build     # cliente com Vite, servidor com esbuild (scripts/build-server.mjs)
 npm start         # sobe HTTP + WebSocket na porta 3000
-npm test          # motor de regras + integração do protocolo
+npm test          # motor de regras + reducer do cliente + integração do protocolo
 ```
 
-Abra `http://localhost:3000`, clique em **Criar partida** e compartilhe o link
-`http://localhost:3000/match/<id>` com o segundo jogador.
+Abra `http://localhost:3000`, clique em **Criar partida** e compartilhe a URL da página
+(`http://localhost:3000/#/m/<id>` — a rota é por *hash*) com o segundo jogador.
+
+Duas abas do mesmo navegador funcionam como dois jogadores: o assento fica no
+`sessionStorage`, que é por aba ([`04-protocolo.md` §4.1](04-protocolo.md)).
+
+Desenvolvimento com recarga automática:
+
+```bash
+npm run dev       # cliente em :5173, servidor em :3000, com proxy do WebSocket
+```
 
 Para jogar pela internet sem instalar nada do outro lado:
 
@@ -79,15 +87,18 @@ npx ngrok http 3000
 ```
 .
 ├── docs/                    esta documentação
+├── scripts/                 build do servidor (esbuild)
 ├── src/
 │   ├── shared/              tipos do protocolo, compartilhados cliente+servidor
 │   ├── engine/              motor de regras — puro, sem rede, sem threads
-│   ├── server/              thread principal (I/O) + worker de partida + bot
+│   ├── server/              thread principal (I/O) + worker de partida
 │   └── client/              interface React
-├── tests/
 ├── package.json
 └── vite.config.ts
 ```
+
+Os testes ficam **ao lado do código** que testam (`src/**/*.test.ts`), não em uma pasta
+`tests/` separada. `src/server/bot.ts` está previsto para a Fase 5 e ainda não existe.
 
 A separação não é cosmética: o `engine/` não importa nada de `server/` nem de `client/`.
 É o que permite testá-lo isoladamente contra a literatura e o que garante que o

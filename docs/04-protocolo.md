@@ -51,24 +51,25 @@ worker sem ter sido verificado.
 
 | Mensagem | Quando | Campos |
 |---|---|---|
-| `join` | ao abrir `/match/:id` | `matchId`, `playerId?` (presente = tentativa de reconexão) |
+| `join` | ao abrir `#/m/:id` | `matchId`, `playerId?` (presente = tentativa de reconexão) |
 | `move` | jogador confirma um lance | `from`, `to`, `kind` |
 | `endTurn` | jogador encerra uma sequência de capturas | — |
 | `resign` | jogador desiste | — |
 | `chat` | jogador envia mensagem | `text` (máx. 500 caracteres) |
-| `hint` | jogador pede sugestão de lance | — |
-| `setBotMode` | alterna a demonstração de threads | `inWorker: boolean` |
 
 ```ts
 type ClientMessage =
-  | { t: 'join';       matchId: string; playerId?: string }
-  | { t: 'move';       from: Point; to: Point; kind: Kind }
+  | { t: 'join';    matchId: string; playerId?: string }
+  | { t: 'move';    from: Point; to: Point; kind: Kind }
   | { t: 'endTurn' }
   | { t: 'resign' }
-  | { t: 'chat';       text: string }
-  | { t: 'hint' }
-  | { t: 'setBotMode'; inWorker: boolean };
+  | { t: 'chat';    text: string };
 ```
+
+**Planejado, ainda não implementado (Fase 5 — [`06-plano-de-implementacao.md`](06-plano-de-implementacao.md)):**
+`hint` (jogador pede sugestão de lance) e `setBotMode { inWorker: boolean }` (alterna onde o
+bot roda, para a demonstração de [`03-concorrencia.md` §4.2](03-concorrencia.md)). Não
+existem em `src/shared/protocol.ts` hoje — não confundir com o protocolo atual acima.
 
 O cliente envia `kind` porque um mesmo par (origem, destino) pode ser aproximação **ou**
 afastamento, capturando peças diferentes. A escolha é do jogador e precisa trafegar
@@ -78,7 +79,7 @@ explicitamente — é a regra 3.4.2 do [documento de regras](01-visao-de-produto
 
 ```ts
 type ServerMessage =
-  | { t: 'joined'; playerId: string; color: Color }
+  | { t: 'joined'; playerId: string; color: Color; matchId: string }
   | { t: 'state';  snapshot: Snapshot }
   | { t: 'chat';   from: Color | 'system'; text: string; at: number }
   | { t: 'peer';   status: 'connected' | 'disconnected' }
@@ -99,12 +100,30 @@ interface Snapshot {
   captured:   { W: number; B: number };
   history:    string[];               // ['d3-e3A', 'g4-f4W', …]
   status:     'waiting' | 'playing' | 'over';
-  thinking:   boolean;                // o bot está calculando
+  thinking:   boolean;                // o bot está calculando — hoje sempre false, ver nota abaixo
+  over:       { winner: Color | null; reason: OverReason } | null;
 }
 ```
 
+**Planejado — `blockedMoves` ([ADR-009](adr/009-lances-bloqueados-no-protocolo.md), ainda não
+implementado):** o `Snapshot` ganhará os lances **descartados**, com o motivo, para que a
+interface possa mostrá-los bloqueados em vez de simplesmente omiti-los:
+
+```ts
+type BlockReason = 'captura-obrigatoria' | 'direcao-repetida' | 'ponto-visitado';
+
+interface BlockedMove { from: Point; to: Point; kind: Kind; reason: BlockReason }
+```
+
+`blockedMoves` é informativo e **nunca jogável**: enviar um deles como intenção continua
+recebendo `ILLEGAL_MOVE`, porque a validação no worker só consulta `legalMoves`.
+
 Enviado por inteiro a cada mudança. Ocupa poucas centenas de bytes; ver
 [ADR-003](adr/003-estado-completo-em-vez-de-delta.md) para o motivo de não haver delta.
+
+`thinking` já existe no tipo, mas hoje é sempre `false`: só teria sentido variar quando o
+bot (Fase 5, [`06-plano-de-implementacao.md`](06-plano-de-implementacao.md)) existir e
+estiver calculando.
 
 Cada campo alimenta um requisito de tela:
 
@@ -116,7 +135,7 @@ Cada campo alimenta um requisito de tela:
 | `sequence` | 7 — modo sequência com peça travada e botão *Encerrar jogada* |
 | `captured` | 8 — placar 22 → 0 |
 | `history` | 9 — histórico em notação |
-| `status` | 12 — fim de partida |
+| `status`, `over` | 12 — fim de partida com motivo |
 
 ### 2.4 Códigos de erro
 
@@ -131,6 +150,33 @@ Cada campo alimenta um requisito de tela:
 Erro nunca derruba a conexão: o cliente recebe `error`, mostra o motivo e continua com o
 último `snapshot` válido.
 
+### 2.5 HTTP — o que não passa pelo socket
+
+Nem tudo é WebSocket. A thread principal também serve três coisas por HTTP:
+
+| Rota | Método | Para quê |
+|---|---|---|
+| `/api/match` | `POST` | Cria uma partida; devolve `{ matchId }`. Responde `503 SERVER_BUSY` no limite de partidas |
+| `/api/match?id=<id>` | `GET` | Consulta se a partida existe e quantos assentos estão ocupados |
+| `/*` | `GET` | Entrega o build do cliente (SPA — qualquer rota desconhecida cai no `index.html`) |
+
+**Planejado — `GET /api/stats`** ([ADR-006](adr/006-observabilidade-de-threads.md)): retrato do
+registro de partidas, incluindo o `threadId` real de cada worker. É o que torna a arquitetura
+de threads observável na tela:
+
+```ts
+{
+  mainThreadId: number,
+  activeWorkers: number,
+  matches: { id: string; threadId: number; seats: number; plies: number;
+             uptimeMs: number; chatCount: number }[],
+}
+```
+
+Lê apenas o `MatchRegistry`, na própria thread principal — **não pergunta nada ao worker**.
+Um worker bloqueado não responderia, e a métrica mentiria exatamente no momento em que ela
+importa.
+
 ## 3. Thread principal ⇄ worker (`postMessage`)
 
 ```ts
@@ -140,19 +186,21 @@ type ToWorker =
   | { t: 'attach';  playerId: string; color: Color }
   | { t: 'intent';  playerId: string; move: { from: Point; to: Point; kind: Kind } }
   | { t: 'endTurn'; playerId: string }
-  | { t: 'resign';  playerId: string }
-  | { t: 'hint';    playerId: string };
+  | { t: 'resign';  playerId: string };
 
 // worker → principal
 type FromWorker =
   | { t: 'state';    snapshot: Snapshot }
   | { t: 'rejected'; playerId: string; code: ErrorCode }
-  | { t: 'hint';     playerId: string; move: Move }
   | { t: 'over';     winner: Color | null; reason: OverReason };
 ```
 
 Note o que **não** existe nesta lista: nenhuma mensagem de chat. O chat nunca cruza a
 fronteira de thread — ver [ADR-005](adr/005-chat-na-thread-principal.md).
+
+Também planejado para a Fase 5, e ainda não implementado: `{ t: 'hint'; playerId }` (principal
+→ worker) e `{ t: 'hint'; playerId; move: Move }` (worker → principal), para o botão
+*Sugerir lance*.
 
 ## 4. Ciclo de conexão
 
@@ -176,7 +224,13 @@ navegador                     thread principal                 worker
 ```
 
 O `playerId` é um identificador opaco gerado pelo servidor e guardado pelo cliente em
-`localStorage`. Ele é a credencial de reconexão.
+`sessionStorage`, não em `localStorage`. Ele é a credencial de reconexão.
+
+Desvio consciente da ideia original: `localStorage` é por origem, não por aba. Duas abas do
+mesmo navegador — o jeito mais simples de demonstrar as duas pontas ao professor — são dois
+jogadores diferentes; com `localStorage` a segunda aba reataria no assento da primeira e a
+expulsaria. `sessionStorage` é por aba, então cada uma guarda seu próprio `playerId`.
+Recarregar a aba continua reconectando, que é o caso que importa.
 
 ### 4.2 Queda e reconexão
 
@@ -194,9 +248,17 @@ conexão, não de jogo.
 TCP não avisa quando o outro lado some sem fechar (cabo arrancado, Wi-Fi caindo). Sem
 tratamento, o servidor guardaria um socket morto indefinidamente.
 
-A thread principal envia **ping a cada 30 segundos**; um cliente que não responda ao
-`pong` em 10 segundos é tratado como desconectado e entra na janela de reconexão. Isso
-usa o ping/pong nativo do protocolo WebSocket (RFC 6455), não uma mensagem de aplicação.
+A thread principal roda um *heartbeat* a cada **30 segundos**
+([`server/index.ts`](../src/server/index.ts)): em cada volta, todo socket que **não
+respondeu ao ping da volta anterior** é encerrado com `terminate()`, e os demais recebem um
+novo ping. Na prática, o cliente tem uma janela de até 30 segundos para responder, e a
+detecção de queda leva entre 30 e 60 segundos.
+
+O `terminate()` dispara o evento `close`, que cai no mesmo caminho de uma desconexão
+normal — o assento entra na janela de reconexão de 5 minutos descrita em §4.2.
+
+Isso usa o ping/pong nativo do protocolo WebSocket (RFC 6455), não uma mensagem de
+aplicação.
 
 ## 5. Invariantes
 

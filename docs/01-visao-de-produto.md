@@ -1,7 +1,8 @@
 # Fanorona — Visão de Produto
 
 > Projeto de Sockets · PPD 2026.2 · IFCE · Prof. Cidcley T. de Souza
-> Entrega **02/09/2026 até 13h** · e-mail `cidcleyppd@gmail.com` · assunto **"Projeto Sockets"** · apresentação pessoal obrigatória
+> Entrega **09/09/2026 até 13h** (prazo original 02/09, renegociado com o professor em 03/09) ·
+> e-mail `cidcleyppd@gmail.com` · assunto **"Projeto Sockets"** · apresentação pessoal obrigatória
 
 ## 1. O que é o jogo
 
@@ -125,9 +126,30 @@ deixando sem movimentos possíveis"*.
 O placar de peças capturadas fica visível na UI o tempo todo, o que atende à leitura do vídeo
 sem inventar uma condição de vitória por pontos.
 
-O vídeo também não menciona a obrigatoriedade de captura. **Decisão:** implementar obrigatória
-(regra canônica) e deixar isso explícito na UI — quando houver captura disponível, os destinos
-paika aparecem bloqueados com o motivo. Assim a regra é defendida visualmente na apresentação.
+**Nem o vídeo nem o enunciado mencionam a obrigatoriedade de captura** — o enunciado descreve
+os três tipos de lance sem dizer que a captura tem prioridade sobre o paika. **Decisão:**
+implementar obrigatória (regra canônica do paper), porque sem ela o jogo degenera: um jogador
+pode recusar todo confronto indefinidamente.
+
+Como a fonte de maior peso (o enunciado) é omissa, a regra precisa ser **defendida na tela**,
+não só no código — ver [ADR-009](adr/009-lances-bloqueados-no-protocolo.md), que faz os lances
+descartados viajarem com o motivo. Hoje isso **ainda não está implementado**: o paika
+simplesmente some da lista de destinos.
+
+### 3.7 Onde o motor é mais restritivo que o enunciado
+
+Registrado aqui porque é a divergência com maior chance de ser lida como bug na apresentação
+(risco R-1 de [`07-mapa-de-avaliacao.md`](07-mapa-de-avaliacao.md)):
+
+| Regra | O enunciado diz | O motor faz | Fonte |
+|---|---|---|---|
+| Sequência de capturas | *"desde que não passe duas vezes pelo mesmo lugar"* — e só | proíbe também **repetir a direção** do lance anterior | paper, regra 3.4.4 |
+| Captura obrigatória | não menciona | obrigatória | paper |
+| Diagonais | *"tabuleiro quadriculado com linhas e diagonais"* | **uma** diagonal por célula, alternando | paper e Wikipedia (§2) |
+
+Nos três casos o motor segue a regra canônica. A decisão é consciente e reversível: cada uma
+é uma condição isolada em [`engine/moves.ts`](../src/engine/moves.ts). Se o professor
+discordar de alguma, a conversa acontece com a regra na tela.
 
 ## 4. O que a tela precisa ter
 

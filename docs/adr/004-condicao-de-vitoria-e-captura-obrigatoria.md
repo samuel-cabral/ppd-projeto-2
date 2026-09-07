@@ -17,8 +17,12 @@ como regra canônica: havendo qualquer captura possível, jogar paika é proibid
 
 1. **Vitória:** adversário com zero peças, **ou** sem lance legal, **ou** desistência.
    O placar de capturas fica visível o tempo todo na interface.
-2. **Captura é obrigatória.** Havendo captura disponível, nenhum paika é oferecido — e a
-   interface mostra os destinos paika bloqueados **com o motivo**.
+2. **Captura é obrigatória.** Havendo captura disponível, nenhum paika é oferecido.
+
+> ⚠️ **Parcialmente implementada.** A filtragem funciona e é testada; a exibição do destino
+> paika **bloqueado com o motivo** não existe hoje — o lance simplesmente some da lista. O
+> mecanismo que falta está especificado em
+> [ADR-009](009-lances-bloqueados-no-protocolo.md) (`blockedMoves` no `Snapshot`).
 
 ## Justificativa
 
@@ -29,8 +33,9 @@ existe em lugar nenhum.
 
 Sobre a captura obrigatória: é a regra que mais muda a natureza do jogo. Sem ela, o jogo
 vira outro. Implementá-la e **exibi-la** — o destino bloqueado explica por que está
-bloqueado — transforma uma divergência de fonte em uma demonstração de que a regra foi
-compreendida, e não ignorada.
+bloqueado — transformaria uma divergência de fonte em demonstração de que a regra foi
+compreendida, e não ignorada. Enquanto a exibição não existe, a regra é aplicada mas
+**invisível**: na apresentação ela precisa ser narrada, não apontada na tela.
 
 Ambas as decisões estão registradas em
 [`01-visao-de-produto.md` §3.6](../01-visao-de-produto.md) e cobertas por testes

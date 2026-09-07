@@ -89,13 +89,39 @@ estado.
 
 ## 4. Demonstração empírica
 
-O argumento acima não precisa ser aceito de boa-fé. A interface tem um seletor:
+O argumento acima não precisa ser aceito de boa-fé — mas as duas camadas estão em estágios
+diferentes de implementação, e é importante não confundir uma com a outra.
+
+### 4.1 Já demonstrável hoje — Camada 1 (event loop)
+
+Sem escrever nenhuma linha a mais, dá pra mostrar ao vivo:
+
+- enviar uma mensagem de chat **durante o turno do adversário** — chega na hora, porque o
+  envio nunca ficou atrás de nenhuma leitura (ver [`05-testes.md` §6](05-testes.md));
+- abrir **duas partidas em abas diferentes** e jogar as duas ao mesmo tempo — cada uma tem
+  seu próprio `worker_thread` ([ADR-002](adr/002-worker-thread-por-partida.md)), então uma
+  não afeta a outra; travar uma (propositalmente, com um lance inválido repetido) não trava
+  a segunda.
+
+Isso já prova a Camada 1 e metade da Camada 2 (isolamento entre partidas). O que falta é a
+parte mais vistosa: mostrar o servidor **travando de verdade** por causa de CPU.
+
+### 4.2 Planejada — Camada 2, o bloqueio por CPU (Fase 5, não implementada)
+
+Sem uma tarefa que realmente ocupe a CPU por segundos, não há o que travar para mostrar a
+diferença — as regras do motor rodam em microssegundos
+([`05-testes.md` §1](05-testes.md)) e não bloqueiam nada de visível. É para isso que a
+Fase 5 do [plano de implementação](06-plano-de-implementacao.md) prevê um oponente
+artificial com busca alpha-beta: é a única tarefa do sistema pesada o bastante para
+demonstrar o bloqueio.
+
+Desenho da demonstração, a ser implementada:
 
 ```
 Oponente artificial roda em:   ( ) thread principal   (•) worker thread
 ```
 
-**Com a busca na thread principal** — o botão que o professor pode acionar:
+**Com a busca na thread principal** — o botão que o professor poderá acionar:
 
 - o jogador digita no chat e a mensagem não sai;
 - o cronômetro da interface congela;
@@ -108,16 +134,23 @@ Oponente artificial roda em:   ( ) thread principal   (•) worker thread
 - o indicador *"pensando…"* anima;
 - as outras partidas seguem sem perceber nada.
 
-É a demonstração direta da afirmação do enunciado: sem thread separada, o caminho de
-envio e recepção fica bloqueado.
+Essa é a demonstração direta da afirmação do enunciado: sem thread separada, o caminho de
+envio e recepção fica bloqueado. Até a Fase 5 ser implementada, o argumento fica no discurso
+(§1–3 acima) e na demonstração parcial da §4.1 — não pode ser apresentado como já
+verificável, porque não é.
 
 ## 5. Escalabilidade
 
 Como cada partida é uma thread, N partidas simultâneas usam até N núcleos.
 
-O limite é configurável (`MAX_WORKERS`, padrão 4). Além dele, novas partidas são
-recusadas em vez de degradar todas as existentes — decisão consciente: preferir recusar a
-entregar um serviço ruim para quem já está jogando.
+O limite é a constante `MAX_MATCHES` em [`server/registry.ts`](../src/server/registry.ts),
+hoje **50**, fixa no código (não há variável de ambiente). Além dela, `POST /api/match`
+responde `503 SERVER_BUSY` em vez de degradar todas as partidas existentes — decisão
+consciente: preferir recusar a entregar um serviço ruim para quem já está jogando.
+
+O número é folgado de propósito: como cada worker fica ocioso entre lances, o gargalo real
+não é CPU, é memória por thread. Para a escala deste projeto (uma apresentação, duas ou
+três partidas simultâneas) o limite nunca é atingido.
 
 ## 6. O que foi deliberadamente evitado
 

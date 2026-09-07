@@ -57,6 +57,7 @@ npm test
 | `src/server/index.ts` | HTTP + WebSocket. So entrada e saida. |
 | `src/server/registry.ts` | Ciclo de vida das partidas, reconexao, ping/pong, chat. |
 | `src/server/match.worker.ts` | A thread da partida: recebe intencao, devolve estado. |
+| `src/client/matchState.ts` | Reducer puro: interpreta mensagens do servidor sem WebSocket nem React, por isso e testado como o `engine/`. |
 | `src/client/` | Interface React + SVG. |
 
 A regra que organiza tudo: **a thread principal nunca calcula regra de jogo, e
@@ -72,5 +73,5 @@ Documentacao de projeto em [`docs/`](docs/README.md); decisoes em
 | Controle de turno e quem inicia | pronto — o servidor define, brancas comecam |
 | Movimentacao das pecas | pronto — inclui captura obrigatoria, aproximacao x afastamento e sequencias |
 | Desistencia | pronto |
-| Chat durante toda a partida | servidor pronto; painel na interface pendente |
+| Chat durante toda a partida | pronto |
 | Indicacao de vencedor | pronto |

@@ -50,5 +50,5 @@ empiricamente o que acontece quando a busca roda na thread errada.
 - ✅ Sem sincronização: nenhuma trava no código
 - ✅ Uma partida travada não derruba as outras
 - ⚠️ Todo estado cruza a fronteira por cópia — aceitável, o `Snapshot` tem poucas centenas de bytes
-- ⚠️ Cada thread custa memória; daí o limite `MAX_WORKERS` (padrão 4)
+- ⚠️ Cada thread custa memória; daí o limite `MAX_MATCHES` (hoje 50, constante em `server/registry.ts`)
 - ⚠️ Depurar código em worker é mais trabalhoso: o log precisa ser roteado para a thread principal

@@ -9,9 +9,10 @@
 | Camada | Como é testada | Motivo |
 |---|---|---|
 | `engine/` | Testes unitários contra a literatura | É onde erro passa despercebido |
+| `client/matchState.ts` | Testes unitários, mesmo motivo do `engine/` | Reducer puro — não importa WebSocket nem React, roda sem DOM |
 | Protocolo | Um teste de integração ponta a ponta | Garante que as duas pontas concordam |
 | Worker | Coberto pelo teste de integração | O plumbing só é correto se a partida inteira funcionar |
-| Interface | Verificação manual, com roteiro | Testar SVG automatizado custa mais do que vale aqui |
+| Interface (renderização) | Verificação manual, com roteiro | Testar SVG automatizado custa mais do que vale aqui |
 
 O motor não importa `ws`, `worker_threads` nem React
 (ver [`02-arquitetura.md` §2](02-arquitetura.md)), então roda em milissegundos sem subir
@@ -58,9 +59,8 @@ Este único teste prova, de uma vez:
 | Sem captura em curva | Uma peça inimiga fora da linha do movimento não cai |
 | Sequência: ponto repetido | Voltar a uma casa já visitada não é oferecido |
 | Sequência: direção repetida | `f4-e4W-d4A` não é oferecido; com outra direção no meio, é |
-| Sequência é opcional | Após uma captura, `endTurn` é sempre aceito |
 | Um turno só | Uma sequência de N capturas não passa a vez no meio |
-| Vitória | Adversário zerado, sem lance legal, e desistência |
+| Vitória | Adversário zerado e sem lance legal (desistência é testada em §5, no protocolo) |
 
 ## 4. Teste de invariantes por simulação
 
@@ -80,12 +80,18 @@ partidas entre buscas alpha-beta é 43,81.
 Um teste sobe o servidor em porta efêmera, conecta **dois clientes WebSocket reais** e
 joga uma partida roteirizada até o fim, verificando:
 
-- o primeiro a entrar recebe as brancas, o segundo as pretas, o terceiro recebe `MATCH_FULL`;
-- um lance ilegal recebe `ILLEGAL_MOVE` e **não altera** o estado;
+- o primeiro a entrar recebe as brancas, o segundo as pretas, e o terceiro recebe
+  `MATCH_FULL` sem derrubar a própria conexão e sem criar um terceiro assento;
+- um lance ilegal recebe `ILLEGAL_MOVE` e **não altera** o estado — provado pela *ausência*
+  de um `state` novo, não só pelo código de erro;
 - um lance fora do turno recebe `NOT_YOUR_TURN`;
+- **sequência é opcional** (regra 3.4.5): com uma sequência em curso, `endTurn` é aceito,
+  limpa a sequência e passa a vez;
 - mensagem de chat enviada durante o turno do adversário chega aos dois lados;
 - fechar e reabrir a conexão com o mesmo `playerId` restaura o mesmo `snapshot`;
-- `resign` encerra com `over` para os dois lados.
+- `resign` encerra com `over` para os dois lados;
+- em toda a partida roteirizada, os dois clientes recebem `snapshot` **idêntico** — é o
+  teste que sustenta [ADR-003](adr/003-estado-completo-em-vez-de-delta.md) na prática.
 
 Este teste é o que prova que thread principal, worker e cliente concordam sobre o
 protocolo — nenhum teste unitário cobre isso.
@@ -97,12 +103,16 @@ Executado antes da entrega, uma vez, com duas abas abertas:
 1. Selecionar uma peça sem lance legal — nada é destacado.
 2. Selecionar `d3` no primeiro lance — o destino `e3` mostra o seletor de aproximação **ou** afastamento.
 3. Passar o cursor sobre cada opção — as peças condenadas mudam entre `f3` e `c3`.
-4. Com captura disponível, um destino paika aparece bloqueado com o motivo.
+4. **Pendente até `blockedMoves` existir ([ADR-009](adr/009-lances-bloqueados-no-protocolo.md),
+   não implementado):** com captura disponível, um destino paika aparece bloqueado com o
+   motivo. Hoje o paika apenas **desaparece** da lista — a regra é aplicada, mas não é
+   explicada na tela.
 5. Executar uma sequência de 2 capturas — a peça fica travada, a direção usada some, o botão *Encerrar jogada* aparece, o turno não vira.
 6. Enviar chat durante o turno do adversário — chega imediatamente.
 7. Desistir — a confirmação aparece e os dois lados veem o vencedor com o motivo.
 8. Fechar uma aba e reabrir o link — a partida continua no mesmo ponto.
-9. Rodar a IA na thread principal — o chat congela. No worker — o chat flui. ([`03-concorrencia.md` §4](03-concorrencia.md))
+9. **Pendente até a Fase 5 (bot ainda não implementado):** rodar a IA na thread principal —
+   o chat congela. No worker — o chat flui. ([`03-concorrencia.md` §4.2](03-concorrencia.md))
 
 ## 7. O que não é testado, e por quê
 
@@ -110,4 +120,4 @@ Executado antes da entrega, uma vez, com duas abas abertas:
 |---|---|
 | Renderização SVG | Custo alto, retorno baixo; o roteiro manual cobre |
 | Carga com muitas partidas | Fora do escopo do enunciado |
-| Qualidade de jogo do bot | Ele existe para ocupar CPU e permitir teste solo, não para jogar bem |
+| Qualidade de jogo do bot (Fase 5, planejado) | Vai existir para ocupar CPU e demonstrar bloqueio de thread, não para jogar bem |

@@ -27,7 +27,7 @@ hospeda uma thread isolada por partida em andamento.
 │    ├── Worker  match:a3f9 ──┐                                   │
 │    │     • GameState (fonte da verdade)                         │
 │    │     • engine (regras)                                      │
-│    │     • bot alpha-beta (tarefa intensiva de CPU)             │
+│    │     • bot alpha-beta (planejado — Fase 5, não implementado)│
 │    │                                                             │
 │    ├── Worker  match:b7c1 ──┤  partidas simultâneas rodam em    │
 │    └── Worker  match:...  ──┘  núcleos diferentes, sem contato  │
@@ -49,13 +49,20 @@ nunca toca em socket.** Cada lado só conhece mensagens.
 | `src/server/index.ts` | Servidor HTTP + WebSocket, handshake, roteamento | `shared`, `registry` |
 | `src/server/registry.ts` | Ciclo de vida das partidas: criar, entrar, reconectar, encerrar | `shared` |
 | `src/server/match.worker.ts` | Corpo da thread de partida: recebe intenção, devolve estado | `engine`, `shared` |
-| `src/server/bot.ts` | Busca alpha-beta sobre o motor | `engine` |
-| `src/client/**` | Interface React | `shared` |
+| `src/server/bot.ts` | **Planejado (Fase 5) — não implementado.** Busca alpha-beta sobre o motor | `engine` |
+| `src/client/matchState.ts` | Reducer puro: interpreta `ServerMessage` em novo estado, sem WebSocket nem React | `shared` |
+| `src/client/**` | Interface React | `shared`, `matchState` |
 
 Restrição de dependência verificável por inspeção: **`engine/` não importa nada.**
 Não conhece `ws`, não conhece `worker_threads`, não conhece React. É uma biblioteca de
 regras pura, e por isso pode ser testada sem subir servidor nenhum
 (ver [`05-testes.md`](05-testes.md)).
+
+O mesmo princípio se repete um nível acima, do lado do cliente: `matchState.ts` também não
+importa `ws` nem React — é a função `reduceMatch(estado, mensagem) → estado` que decide o
+que cada mensagem do servidor significa para a tela. Antes ela vivia misturada dentro do
+callback do WebSocket (`useMatch.ts`), inacessível a teste. Extraída, ela é testada do
+mesmo jeito que o motor: sem subir navegador, sem abrir socket.
 
 ## 3. O servidor é a autoridade
 
@@ -116,7 +123,7 @@ ver [`01-visao-de-produto.md` §3.4](01-visao-de-produto.md)).
 
 | Evento | O que acontece |
 |---|---|
-| Jogador clica em **Criar partida** | Thread principal gera um `matchId`, cria o worker, devolve o link `/match/<id>` |
+| Jogador clica em **Criar partida** | Thread principal gera um `matchId`, cria o worker, devolve `{ matchId }`; o cliente navega para `#/m/<id>` |
 | Primeiro `join` | Recebe as brancas. Estado: *aguardando oponente* |
 | Segundo `join` | Recebe as pretas. Worker envia o estado inicial. Brancas começam |
 | Terceiro `join` | Recusado com `MATCH_FULL` — não há espectadores |
@@ -128,10 +135,31 @@ Detalhamento em [`04-protocolo.md` §4](04-protocolo.md).
 
 ## 6. Decisões registradas
 
-| ADR | Decisão |
-|---|---|
-| [001](adr/001-websocket-em-vez-de-tcp-cru.md) | WebSocket em vez de socket TCP cru |
-| [002](adr/002-worker-thread-por-partida.md) | Uma `worker_thread` por partida |
-| [003](adr/003-estado-completo-em-vez-de-delta.md) | Servidor envia o estado completo, não deltas |
-| [004](adr/004-condicao-de-vitoria-e-captura-obrigatoria.md) | Captura obrigatória e condição de vitória |
-| [005](adr/005-chat-na-thread-principal.md) | Chat na thread principal, fora do worker |
+| ADR | Decisão | Data |
+|---|---|---|
+| [001](adr/001-websocket-em-vez-de-tcp-cru.md) | WebSocket em vez de socket TCP cru | 19/08 |
+| [002](adr/002-worker-thread-por-partida.md) | Uma `worker_thread` por partida | 19/08 |
+| [003](adr/003-estado-completo-em-vez-de-delta.md) | Servidor envia o estado completo, não deltas | 19/08 |
+| [004](adr/004-condicao-de-vitoria-e-captura-obrigatoria.md) | Captura obrigatória e condição de vitória | 19/08 |
+| [005](adr/005-chat-na-thread-principal.md) | Chat na thread principal, fora do worker | 19/08 |
+| [006](adr/006-observabilidade-de-threads.md) | Painel de observabilidade das threads (`/api/stats`) | 03/09 |
+| [007](adr/007-executavel-via-node-sea.md) | Executável via Node SEA | 03/09 |
+| [008](adr/008-implantacao-multi-maquina.md) | Implantação em máquinas diferentes como capacidade de primeira classe | 03/09 |
+| [009](adr/009-lances-bloqueados-no-protocolo.md) | Lances bloqueados viajam no protocolo | 03/09 |
+
+## 7. Arquitetura-alvo — o que muda até 09/09
+
+O replanejamento de 03/09 ([`07-mapa-de-avaliacao.md`](07-mapa-de-avaliacao.md)) não altera
+nenhuma fronteira: a thread principal continua sem calcular regra, o worker continua sem tocar
+em socket, o cliente continua sem conhecer o jogo. O que entra são **três componentes novos**,
+todos encaixados nas fronteiras que já existem:
+
+| Componente | Onde vive | Fronteira que respeita |
+|---|---|---|
+| `GET /api/stats` ([ADR-006](adr/006-observabilidade-de-threads.md)) | Thread principal, lendo só o `MatchRegistry` | Não pergunta nada ao worker — um worker bloqueado não responderia, e a métrica mentiria justamente quando importa |
+| `blockedMoves` no `Snapshot` ([ADR-009](adr/009-lances-bloqueados-no-protocolo.md)) | `engine/moves.ts` → worker → `Snapshot` | O cliente continua burro: desenha o que recebe, inclusive o motivo do bloqueio |
+| `server/bot.ts` (Fase 5) | Dentro do worker, por padrão | É a tarefa de CPU que justifica a existência do worker ([ADR-002](adr/002-worker-thread-por-partida.md)) |
+
+O bot é o único que ganha uma exceção deliberada: um seletor permite rodá-lo **na thread
+principal**, propositalmente violando a fronteira, para demonstrar ao vivo o que acontece
+quando ela é violada ([`03-concorrencia.md` §4.2](03-concorrencia.md)).

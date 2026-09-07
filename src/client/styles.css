@@ -166,3 +166,29 @@ button.ghost { background: transparent; color: var(--muted); }
   font-size: 13px;
   color: var(--muted);
 }
+
+.chat-log {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 160px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+}
+.chat-msg { color: var(--ink); }
+.chat-msg b { color: var(--muted); font-weight: 600; margin-right: 4px; }
+.chat-msg.mine b { color: var(--approach); }
+.chat-msg.system { color: var(--muted); font-style: italic; }
+.chat-form { display: flex; gap: 8px; margin-top: 8px; }
+.chat-form input {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--ink);
+}

@@ -5,30 +5,20 @@
  * desenha os destinos que o servidor marcou como legais e envia a intencao.
  * Toda regra vive no worker do servidor (docs/02-arquitetura.md secao 3).
  */
-import { useCallback, useEffect, useRef, useState } from 'react';
-import type {
-  ClientMessage,
-  Color,
-  Kind,
-  OverReason,
-  Point,
-  ServerMessage,
-  Snapshot,
-} from '../shared/protocol.js';
+import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
+import type { ClientMessage, Kind, Point, ServerMessage } from '../shared/protocol.js';
+import { type ChatEntry, type MatchState, initialMatchState, reduceMatch } from './matchState.js';
 
-export interface MatchView {
+export interface MatchView extends MatchState {
   connection: 'connecting' | 'open' | 'closed';
-  playerId: string | null;
-  color: Color | null;
-  snapshot: Snapshot | null;
-  peerOnline: boolean;
-  over: { winner: Color | null; reason: OverReason } | null;
-  error: string | null;
   send: (msg: ClientMessage) => void;
   move: (from: Point, to: Point, kind: Kind) => void;
   endTurn: () => void;
   resign: () => void;
+  sendChat: (text: string) => void;
 }
+
+export type { ChatEntry };
 
 function socketUrl(): string {
   const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -38,12 +28,7 @@ function socketUrl(): string {
 export function useMatch(matchId: string | null): MatchView {
   const ws = useRef<WebSocket | null>(null);
   const [connection, setConnection] = useState<MatchView['connection']>('connecting');
-  const [playerId, setPlayerId] = useState<string | null>(null);
-  const [color, setColor] = useState<Color | null>(null);
-  const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
-  const [peerOnline, setPeerOnline] = useState(false);
-  const [over, setOver] = useState<MatchView['over']>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [state, dispatch] = useReducer(reduceMatch, initialMatchState);
 
   const send = useCallback((msg: ClientMessage) => {
     if (ws.current?.readyState === WebSocket.OPEN) ws.current.send(JSON.stringify(msg));
@@ -68,29 +53,11 @@ export function useMatch(matchId: string | null): MatchView {
 
     socket.onmessage = (event) => {
       const msg: ServerMessage = JSON.parse(event.data);
-      switch (msg.t) {
-        case 'joined':
-          sessionStorage.setItem(`fanorona:${matchId}`, msg.playerId);
-          setPlayerId(msg.playerId);
-          setColor(msg.color);
-          setError(null);
-          break;
-        case 'state':
-          setSnapshot(msg.snapshot);
-          if (msg.snapshot.over) setOver(msg.snapshot.over);
-          break;
-        case 'peer':
-          setPeerOnline(msg.status === 'connected');
-          break;
-        case 'over':
-          setOver({ winner: msg.winner, reason: msg.reason });
-          break;
-        case 'error':
-          setError(msg.message);
-          break;
-        case 'chat':
-          break; // painel de chat entra na Fase 4
-      }
+      // playerId so precisa ser persistido aqui: e o unico efeito colateral
+      // real de uma mensagem, o resto e so calculo — por isso fica fora do
+      // reducer puro em vez de dentro dele.
+      if (msg.t === 'joined') sessionStorage.setItem(`fanorona:${matchId}`, msg.playerId);
+      dispatch(msg);
     };
 
     socket.onclose = () => setConnection('closed');
@@ -100,16 +67,12 @@ export function useMatch(matchId: string | null): MatchView {
   }, [matchId]);
 
   return {
+    ...state,
     connection,
-    playerId,
-    color,
-    snapshot,
-    peerOnline,
-    over,
-    error,
     send,
     move: (from, to, kind) => send({ t: 'move', from, to, kind }),
     endTurn: () => send({ t: 'endTurn' }),
     resign: () => send({ t: 'resign' }),
+    sendChat: (text) => send({ t: 'chat', text }),
   };
 }

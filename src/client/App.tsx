@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Board } from './Board.js';
+import { Chat } from './Chat.js';
 import { useMatch } from './useMatch.js';
 import type { Color, Move, Point } from '../shared/protocol.js';
 
@@ -249,6 +250,8 @@ function MatchScreen({ matchId }: { matchId: string }) {
             ))}
           </ol>
         </section>
+
+        <Chat messages={match.chat} me={color} onSend={match.sendChat} />
 
         {!match.over && snapshot.status !== 'waiting' && (
           <button

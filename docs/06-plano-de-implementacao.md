@@ -154,7 +154,7 @@ ficar pronto" para "o que fica sem a defesa mais forte se não ficar pronto".
 | Risco | Mitigação |
 |---|---|
 | O bot não ficar pronto a tempo | Único item que pode ser cortado sem zerar nenhum requisito — ver ordem de corte |
-| Node SEA (executável) ter alguma pegadinha de empacotamento não prevista | Puxar a documentação atual do Node antes de implementar (regra do projeto); começar a Fase 6 com 2 dias de folga, não 1 |
+| ~~Node SEA ter pegadinha de empacotamento~~ — **risco extinto em 06/09**: não haverá binário ([ADR-012](adr/012-entrega-sem-binario.md)) | Substituído por um risco menor: o caminho `npm install && npm run build && npm start` precisa ser conferido em **clone limpo**, não assumido |
 | `ngrok` falhar no dia da apresentação | Testado na Fase 6, com plano B de compartilhamento de tela |
 
 Se o cronograma apertar de novo, cortar **nesta ordem**:
@@ -182,7 +182,7 @@ qualidade do código. Checklist literal, com a frase do enunciado ao lado.
 | 4 | **Destinatário e assunto** | *"enviado por email (cidcleyppd@gmail.com)... No assunto do email deve conter o texto 'Projeto Sockets'"* | `cidcleyppd@gmail.com`, assunto exatamente **Projeto Sockets** |
 | 5 | **Formato do envio** | *"o link do Google drive com os códigos fontes compactados em um único arquivo ou link do GitHub"* | **Plano A:** link do repositório no GitHub. **Plano B**, se o repo estiver privado ou o link falhar: `.zip` único no Google Drive, com permissão de leitura pública conferida |
 | 6 | **Todos os códigos** | *"Devem ser entregues TODOS os códigos"* | O repositório inteiro, incluindo `docs/` e testes |
-| 7 | **Executável** | *"Deverá ser entregue, se a linguagem de programação permitir, um código executável (.jar, .exe, etc.)"* | Node SEA — [ADR-007](adr/007-executavel-via-node-sea.md). Plano B: `.zip` com `node_modules` e script de start documentado |
+| 7 | **Executável** | *"Deverá ser entregue, **se a linguagem de programação permitir**, um código executável (.jar, .exe, etc.)"* | **Não haverá binário** — [ADR-012](adr/012-entrega-sem-binario.md), que substitui a ADR-007. A cláusula condicional é invocada: em Node, `npm start` é o modo natural de entregar um servidor, e um binário SEA seria de plataforma única (macOS ARM), inútil na máquina do avaliador. `README.md` traz o caminho conferido em clone limpo |
 | 8 | **Apresentação pessoal** | *"TODOS os trabalhos só serão aceitos se apresentados pessoalmente pelo aluno na data final de entrega ou, em casos excepcionais, a combinar com o professor"* | Obrigatória para a nota, mas **não precisa ser no dia da entrega** — combinado com o Prof. Cidcley em 19/08/2026. O prazo travado é só o e-mail |
 
 **Trabalho individual.** O enunciado abre a seção de entrega com *"Trabalho Individual"* em

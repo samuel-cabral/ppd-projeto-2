@@ -143,9 +143,18 @@ Detalhamento em [`04-protocolo.md` §4](04-protocolo.md).
 | [004](adr/004-condicao-de-vitoria-e-captura-obrigatoria.md) | Captura obrigatória e condição de vitória | 19/08 |
 | [005](adr/005-chat-na-thread-principal.md) | Chat na thread principal, fora do worker | 19/08 |
 | [006](adr/006-observabilidade-de-threads.md) | Painel de observabilidade das threads (`/api/stats`) | 03/09 |
-| [007](adr/007-executavel-via-node-sea.md) | Executável via Node SEA | 03/09 |
+| [007](adr/007-executavel-via-node-sea.md) | ~~Executável via Node SEA~~ — substituída pela 012 | 03/09 |
 | [008](adr/008-implantacao-multi-maquina.md) | Implantação em máquinas diferentes como capacidade de primeira classe | 03/09 |
 | [009](adr/009-lances-bloqueados-no-protocolo.md) | Lances bloqueados viajam no protocolo | 03/09 |
+| [010](adr/010-camadas-por-contexto-delimitado.md) | Camadas por contexto delimitado (DDD + Clean Architecture) | 06/09 |
+| [011](adr/011-bot-como-instrumento-de-demonstracao.md) | Oponente artificial como instrumento de demonstração | 06/09 |
+| [012](adr/012-entrega-sem-binario.md) | Entrega sem binário: script de start documentado | 06/09 |
+
+> ⚠️ **A [ADR-010](adr/010-camadas-por-contexto-delimitado.md) reorganiza a árvore descrita neste
+> documento.** As fronteiras não mudam — a thread principal continua sem calcular regra, o worker
+> continua sem tocar em socket —, mas os caminhos de arquivo da §2 mudam: `engine/` passa a
+> `game/domain/`, `server/` se divide entre `game/` e `table/`. Este documento é reescrito ao fim
+> da refatoração; até lá, a §2 descreve a estrutura em vigor e a ADR-010 descreve a de destino.
 
 ## 7. Arquitetura-alvo — o que muda até 09/09
 

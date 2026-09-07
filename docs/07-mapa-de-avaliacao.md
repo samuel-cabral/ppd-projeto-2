@@ -60,7 +60,7 @@ Requisito → onde vive no código → como se demonstra ao vivo.
 | 3 | Desistência | `match.worker.ts` (`resign`) | Botão com confirmação; os dois lados veem o fim | ✅ |
 | 4 | Chat durante toda a partida | [`registry.ts`](../src/server/registry.ts) (`postChat`), [`Chat.tsx`](../src/client/Chat.tsx) | Enviar durante o turno do adversário | ✅ |
 | 5 | Indicação de vencedor | `match.worker.ts` (`checkOver`) | Hoje: uma linha de texto no painel | 🟡 Fraco — AD-6 |
-| — | Executável | — | Binário rodando fora do repositório | 🔲 **Lacuna** — AD-4 |
+| — | Executável | — | `npm start` em clone limpo; sem binário, por decisão ([ADR-012](adr/012-entrega-sem-binario.md)) | ✅ Decidido — AD-4 |
 | — | Todos os códigos | repositório | Link do GitHub | ✅ |
 
 ## 4. Decisões arquiteturais deste replanejamento
@@ -104,14 +104,28 @@ descartados, com o motivo (`'captura-obrigatoria'` ou `'direcao-repetida'` ou
 
 Um efeito colateral valioso: resolve o risco R-1 da §5 abaixo.
 
-### AD-4 — Executável via Node SEA (critério: entregável obrigatório)
+### AD-4 — ~~Executável via Node SEA~~ → **Entrega sem binário** (critério: entregável obrigatório)
 
-O enunciado pede executável *"se a linguagem permitir"*. Node 22 permite: **Single Executable
-Applications** produz um binário nativo. Registrado em
-[ADR-007](adr/007-executavel-via-node-sea.md).
+> **Revisada em 06/09.** A decisão original era empacotar com Node SEA
+> ([ADR-007](adr/007-executavel-via-node-sea.md)), pelo argumento de que Node *permite* gerar
+> binário e invocar a cláusula de escape seria factualmente errado.
 
-Não vale nota diretamente, mas é condição de entrega — sua ausência é um risco de zerar item,
-não de perder pontos.
+A premissa foi reexaminada e não se sustenta. A cláusula *"se a linguagem de programação
+permitir"* não pergunta se é tecnicamente possível — pergunta se é o modo natural de entregar
+aquele programa. Os exemplos do próprio enunciado são `.jar` e `.exe`, onde o artefato compilado
+**é** a forma normal de distribuir. Em Node não é: a forma normal é código-fonte mais
+`npm install && npm start`.
+
+Somam-se três fatos que a própria ADR-007 já registrava como consequências: o binário é **por
+plataforma** (o gerado no macOS ARM não roda no Windows do avaliador), embutir os assets do
+cliente é a parte com risco real, e o macOS pode exigir assinatura.
+
+**Decisão:** não produzir binário; entregar o caminho `npm install && npm run build && npm start`
+conferido em clone limpo, com a ausência justificada por escrito em
+[ADR-012](adr/012-entrega-sem-binario.md).
+
+As ~2 horas liberadas vão para a Fase 5, que move *Explicação do Código*. O executável não movia
+critério nenhum — não há item de nota para ele.
 
 ### AD-5 — Implantação em máquinas diferentes como capacidade de primeira classe (critério: Funcionalidades)
 
@@ -170,7 +184,7 @@ a regra na tela — e o comportamento é uma linha de código para inverter.
 entregue no prazo não fecha a nota sozinho. A apresentação já está confirmada como podendo ser
 posterior à entrega (19/08), mas **precisa acontecer**.
 
-### R-3 🟡 — Node SEA é o caminho menos trilhado
+### R-3 ⚫ — ~~Node SEA é o caminho menos trilhado~~ (extinto em 06/09)
 
 Empacotar Node em binário tem pegadinhas (assets, workers). Mitigação: começar a Fase 6 com
 dois dias, e plano B explícito — entregar `.zip` com `node_modules` e um script de start
@@ -197,7 +211,7 @@ entrega é risco sem retorno de nota — arquitetura não é critério.
 
 | Prioridade | Item | Critério que move | Fase |
 |---|---|---|---|
-| P0 | Executável (AD-4) | Entregável obrigatório | 6 |
+| P0 | Verificar `npm start` em clone limpo (AD-4) | Entregável obrigatório | 6 |
 | P0 | Multi-máquina (AD-5) | Funcionalidades / objetivo literal | 6 |
 | P1 | Banners de início e fim (AD-6) | UI | 5 |
 | P1 | Lances bloqueados (AD-3) | UI + Funcionalidades, e mitiga R-1 | 5 |

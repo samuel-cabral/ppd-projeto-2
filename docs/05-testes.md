@@ -6,13 +6,14 @@
 
 ## 1. O que é testado, e por quê
 
-| Camada | Como é testada | Motivo |
-|---|---|---|
-| `engine/` | Testes unitários contra a literatura | É onde erro passa despercebido |
-| `client/matchState.ts` | Testes unitários, mesmo motivo do `engine/` | Reducer puro — não importa WebSocket nem React, roda sem DOM |
-| Protocolo | Um teste de integração ponta a ponta | Garante que as duas pontas concordam |
-| Worker | Coberto pelo teste de integração | O plumbing só é correto se a partida inteira funcionar |
-| Interface (renderização) | Verificação manual, com roteiro | Testar SVG automatizado custa mais do que vale aqui |
+**33 testes, em três arquivos** (`npm test`):
+
+| Arquivo | Testes | Camada | Como é testada | Motivo |
+|---|---|---|---|---|
+| `engine/engine.test.ts` | 17 | `engine/` | Testes unitários contra a literatura | É onde erro passa despercebido |
+| `client/matchState.test.ts` | 7 | `client/matchState.ts` | Testes unitários, mesmo motivo do `engine/` | Reducer puro — não importa WebSocket nem React, roda sem DOM |
+| `server/network.test.ts` | 9 | Protocolo + worker | Integração ponta a ponta, com servidor e sockets reais | Garante que as duas pontas concordam; o plumbing só é correto se a partida inteira funcionar |
+| — | — | Interface (renderização) | Verificação manual, com roteiro (§6) | Testar SVG automatizado custa mais do que vale aqui |
 
 O motor não importa `ws`, `worker_threads` nem React
 (ver [`02-arquitetura.md` §2](02-arquitetura.md)), então roda em milissegundos sem subir
@@ -75,6 +76,12 @@ Resultado da execução do protótipo: **média de 43,8 lances por partida**, ma
 observada de 6 capturas encadeadas, nenhuma falha. A média de referência do paper para
 partidas entre buscas alpha-beta é 43,81.
 
+> ⚠️ Esses três números são **medição histórica do protótipo**, anotada à mão em 20/08 — não são
+> asserção do teste. O que o teste afirma são as quatro invariantes acima; ele não verifica a
+> média de lances nem o tamanho da maior sequência, e não falharia se elas mudassem. A
+> proximidade com o número do paper é indício de que o motor se comporta como a literatura
+> descreve, não prova disso.
+
 ## 5. Teste de integração do protocolo
 
 Um teste sobe o servidor em porta efêmera, conecta **dois clientes WebSocket reais** e
@@ -95,6 +102,42 @@ joga uma partida roteirizada até o fim, verificando:
 
 Este teste é o que prova que thread principal, worker e cliente concordam sobre o
 protocolo — nenhum teste unitário cobre isso.
+
+### 5.1 Determinismo: a corrida que os próprios testes tinham
+
+Um teste de integração sobre sockets pode ser não determinístico **por culpa do teste**, e este
+conjunto foi. Vale registrar porque o bug é exatamente o conteúdo da disciplina aparecendo no
+ferramental.
+
+Cinco dos nove testes começavam assim:
+
+```ts
+a.send({ t: 'join', matchId });
+b.send({ t: 'join', matchId });   // sem esperar a resposta de `a`
+```
+
+`send` não espera resposta, e `a` e `b` são **duas conexões TCP independentes**. Qual delas o
+servidor atende primeiro é decidido pelo sistema operacional e pela rede, não pelo código do
+teste. Como o servidor dá as brancas a quem chega primeiro, os assentos trocavam de dono de forma
+imprevisível.
+
+Sintoma: `rejeita lance ilegal` falhava cerca de **1 em 3 execuções**, com
+`expected 'NOT_YOUR_TURN' to be 'ILLEGAL_MOVE'` — uma mensagem que aponta para a validação de
+lances, que estava correta. O defeito real estava quinze linhas acima, na ordem de entrada.
+
+O servidor nunca esteve errado. Quem assumia uma ordem que ninguém garantiu era o observador —
+que é a forma canônica de uma condição de corrida, e o motivo de o teste ser um bom exemplo para
+a apresentação.
+
+**Correção:** `seatBoth()`, que espera o `joined` de cada cliente antes do próximo entrar, e que
+documenta a armadilha no lugar onde o próximo teste vai ser escrito.
+
+**Critério de aceitação de um teste de rede neste projeto, daqui em diante:** dez execuções
+consecutivas verdes. Uma execução verde não distingue um teste correto de um teste sortudo.
+
+> Um teste instável é pior que um teste que sempre falha. O que sempre falha informa; o instável
+> **desinforma** — ensina a ignorar o vermelho, e no dia em que ficar vermelho por um bug de
+> verdade, a reação treinada é rodar de novo e seguir.
 
 ## 6. Roteiro de verificação manual da interface
 

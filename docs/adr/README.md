@@ -15,11 +15,23 @@ descrever por semanas uma tela que não existia.
 | [004](004-condicao-de-vitoria-e-captura-obrigatoria.md) | Captura obrigatória e condição de vitória | Aceita | 🟡 regra sim, exibição do bloqueio não |
 | [005](005-chat-na-thread-principal.md) | Chat na thread principal, fora do worker | Aceita | ✅ |
 | [006](006-observabilidade-de-threads.md) | Painel de observabilidade das threads | Aceita | 🔲 Fase 5 |
-| [007](007-executavel-via-node-sea.md) | Executável via Node SEA | Aceita | 🔲 Fase 6 |
+| [007](007-executavel-via-node-sea.md) | Executável via Node SEA | ⛔ Substituída pela 012 | — |
 | [008](008-implantacao-multi-maquina.md) | Implantação em máquinas diferentes como capacidade de primeira classe | Aceita | 🔲 Fase 6 |
 | [009](009-lances-bloqueados-no-protocolo.md) | Lances bloqueados viajam no protocolo | Aceita | 🔲 Fase 5 |
+| [010](010-camadas-por-contexto-delimitado.md) | Camadas por contexto delimitado (DDD + Clean Architecture) | Aceita | 🔲 Fase 2 |
+| [011](011-bot-como-instrumento-de-demonstracao.md) | Oponente artificial como instrumento de demonstração | Aceita | 🔲 Fase 5 |
+| [012](012-entrega-sem-binario.md) | Entrega sem binário: script de start documentado | Aceita | 🔲 Fase 6 |
 
 As decisões 001–005 são de **19/08/2026**, tomadas antes da primeira linha de código.
 As 006–009 são de **03/09/2026**, do replanejamento registrado em
 [`07-mapa-de-avaliacao.md`](../07-mapa-de-avaliacao.md) — todas motivadas por um critério de
 avaliação específico, nenhuma por gosto arquitetural.
+As 010–012 são de **06/09/2026**: a refatoração para DDD/Clean Architecture, a especificação do
+bot que ela destrava, e a reversão da decisão de empacotamento.
+
+## Sobre a ADR-007
+
+Ela é a única **substituída**, e foi mantida no diretório com o texto original intacto. Um
+registro de decisões que só guarda as decisões que deram certo não é um registro — é um
+portfólio. O valor de ver o raciocínio de 03/09 ao lado do de 06/09 é justamente conseguir
+apontar qual premissa mudou.

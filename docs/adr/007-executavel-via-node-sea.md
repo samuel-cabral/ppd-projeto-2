@@ -1,6 +1,16 @@
 # ADR-007 — Executável via Node SEA
 
-**Data:** 03/09/2026 · **Status:** Aceita
+**Data:** 03/09/2026 · **Status:** ⛔ **Substituída** pela
+[ADR-012](012-entrega-sem-binario.md) em 06/09/2026
+
+> Esta decisão foi revertida. O texto abaixo fica **inalterado**, como registro do que se
+> pensava em 03/09 e por quê — um ADR substituído não é apagado nem editado, senão o histórico
+> de decisões vira só a lista das que deram certo.
+>
+> O que mudou: a premissa da §Contexto — *"alegar que Node não permite seria factualmente
+> errado diante de um professor que pode saber disso"* — estava tratando o professor como
+> alguém a ser convencido de que a cláusula de escape se aplica. Ele sabe que Node roda como
+> servidor. A [ADR-012](012-entrega-sem-binario.md) tem o raciocínio completo.
 
 ## Contexto
 

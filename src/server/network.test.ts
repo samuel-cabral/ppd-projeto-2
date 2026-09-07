@@ -71,6 +71,26 @@ async function createMatch(): Promise<string> {
   return body.matchId;
 }
 
+/**
+ * Senta os dois clientes com os assentos determinados: `a` fica com as brancas.
+ *
+ * O `await` entre os dois `join` nao e decoracao. Sao dois sockets
+ * independentes, entao a ordem em que o servidor os atende nao e garantida:
+ * disparar os dois seguidos deixa o assento no acaso, e o teste passa a falhar
+ * de forma intermitente com um erro que nada tem a ver com o que ele queria
+ * provar (`NOT_YOUR_TURN` no lugar de `ILLEGAL_MOVE`, porque quem jogou tinha
+ * recebido as pretas).
+ *
+ * O servidor esta certo — quem chega primeiro leva as brancas. Quem precisava
+ * declarar a ordem era o teste.
+ */
+async function seatBoth(a: TestClient, b: TestClient, matchId: string): Promise<void> {
+  a.send({ t: 'join', matchId });
+  await a.wait('joined');
+  b.send({ t: 'join', matchId });
+  await b.wait('joined');
+}
+
 beforeAll(async () => {
   execFileSync('node', ['scripts/build-server.mjs'], { stdio: 'ignore' });
   server = spawn('node', ['dist/server/index.js'], {
@@ -120,8 +140,7 @@ describe('protocolo em rede', () => {
     const a = new TestClient();
     const b = new TestClient();
     await Promise.all([a.open(), b.open()]);
-    a.send({ t: 'join', matchId });
-    b.send({ t: 'join', matchId });
+    await seatBoth(a, b, matchId);
     await b.wait('state', (m) => (m as { snapshot: Snapshot }).snapshot.status === 'playing');
 
     b.send({ t: 'move', from: 'd4', to: 'e3', kind: 'A' });
@@ -138,14 +157,25 @@ describe('protocolo em rede', () => {
     const a = new TestClient();
     const b = new TestClient();
     await Promise.all([a.open(), b.open()]);
-    a.send({ t: 'join', matchId });
-    b.send({ t: 'join', matchId });
-    await a.wait('state', (m) => (m as { snapshot: Snapshot }).snapshot.status === 'playing');
+    await seatBoth(a, b, matchId);
+    // Guarda o estado inicial, para provar depois que a recusa nao mexeu em nada.
+    const antes = (
+      await a.wait('state', (m) => (m as { snapshot: Snapshot }).snapshot.status === 'playing')
+    ).snapshot;
+    // Descarta o 'state' de "aguardando" que ficou na fila antes deste.
+    a.clear();
 
     // a1-a2 e paika: existe captura disponivel, entao esta proibido.
     a.send({ t: 'move', from: 'a1', to: 'a2', kind: 'P' });
     const err = await a.wait('error');
     expect(err.code).toBe('ILLEGAL_MOVE');
+
+    // Um lance recusado nao gera 'state' nenhum: se o servidor tivesse aplicado
+    // o lance, este wait resolveria com um snapshot novo em vez de estourar.
+    await expect(a.wait('state', undefined, 300)).rejects.toThrow(/timeout/);
+    expect(antes.turn).toBe('W');
+    expect(antes.board.filter((c) => c === 'W')).toHaveLength(22);
+    expect(antes.board.filter((c) => c === 'B')).toHaveLength(22);
 
     a.close();
     b.close();
@@ -156,8 +186,7 @@ describe('protocolo em rede', () => {
     const a = new TestClient();
     const b = new TestClient();
     await Promise.all([a.open(), b.open()]);
-    a.send({ t: 'join', matchId });
-    b.send({ t: 'join', matchId });
+    await seatBoth(a, b, matchId);
 
     // Espera os DOIS chegarem ao estado inicial antes de limpar as filas,
     // senao um deles fica um estado atrasado no resto do teste.
@@ -206,8 +235,7 @@ describe('protocolo em rede', () => {
     const a = new TestClient();
     const b = new TestClient();
     await Promise.all([a.open(), b.open()]);
-    a.send({ t: 'join', matchId });
-    b.send({ t: 'join', matchId });
+    await seatBoth(a, b, matchId);
     await a.wait('state', (m) => (m as { snapshot: Snapshot }).snapshot.status === 'playing');
 
     a.send({ t: 'resign' });
@@ -215,6 +243,37 @@ describe('protocolo em rede', () => {
     expect(over).toMatchObject({ winner: 'B', reason: 'resign' });
 
     a.close();
+    b.close();
+  });
+
+  it('chat chega aos dois lados e o historico e reenviado numa reconexao', async () => {
+    const matchId = await createMatch();
+    const a = new TestClient();
+    const b = new TestClient();
+    await Promise.all([a.open(), b.open()]);
+    a.send({ t: 'join', matchId });
+    const joinedA = await a.wait('joined');
+    b.send({ t: 'join', matchId });
+    const playing = (m: ServerMessage) => (m as { snapshot: Snapshot }).snapshot.status === 'playing';
+    await Promise.all([a.wait('state', playing), b.wait('state', playing)]);
+    a.clear();
+    b.clear();
+
+    b.send({ t: 'chat', text: 'boa partida' });
+    const [chatA, chatB] = await Promise.all([a.wait('chat'), b.wait('chat')]);
+    expect(chatA).toMatchObject({ from: 'B', text: 'boa partida' });
+    expect(chatB).toMatchObject({ from: 'B', text: 'boa partida' });
+
+    // quem reconecta recebe o historico via replay, mesmo sem ter visto a mensagem ao vivo.
+    a.close();
+    const again = new TestClient();
+    await again.open();
+    again.send({ t: 'join', matchId, playerId: joinedA.playerId });
+    await again.wait('joined');
+    const replay = await again.wait('chat');
+    expect(replay).toMatchObject({ from: 'B', text: 'boa partida' });
+
+    again.close();
     b.close();
   });
 
@@ -242,4 +301,75 @@ describe('protocolo em rede', () => {
     again.close();
     b.close();
   });
+  it('o terceiro a entrar recebe MATCH_FULL e nao ocupa assento', async () => {
+    const matchId = await createMatch();
+    const a = new TestClient();
+    const b = new TestClient();
+    const c = new TestClient();
+    await Promise.all([a.open(), b.open(), c.open()]);
+
+    a.send({ t: 'join', matchId });
+    await a.wait('joined');
+    b.send({ t: 'join', matchId });
+    await b.wait('joined');
+
+    // Nao existe espectador: os dois assentos ja estao ocupados.
+    c.send({ t: 'join', matchId });
+    const err = await c.wait('error');
+    expect(err.code).toBe('MATCH_FULL');
+
+    // A recusa nao derruba a conexao nem cria um terceiro assento.
+    expect(c.socket.readyState).toBe(c.socket.OPEN);
+    const info = await (await fetch(`${BASE}/api/match?id=${matchId}`)).json();
+    expect(info.seats).toBe(2);
+
+    a.close();
+    b.close();
+    c.close();
+  });
+
+  it('sequencia e opcional: endTurn encerra a jogada e passa a vez', async () => {
+    const matchId = await createMatch();
+    const a = new TestClient();
+    const b = new TestClient();
+    await Promise.all([a.open(), b.open()]);
+    await seatBoth(a, b, matchId);
+
+    const playing = (m: ServerMessage) => (m as { snapshot: Snapshot }).snapshot.status === 'playing';
+    const [first] = await Promise.all([a.wait('state', playing), b.wait('state', playing)]);
+    let snapshot = first.snapshot;
+    a.clear();
+    b.clear();
+    const clients = { W: a, B: b };
+
+    // Nenhum lance de abertura abre sequencia: joga ate uma aparecer.
+    let rng = 20260905;
+    const pick = (n: number) => {
+      rng = (rng * 1103515245 + 12345) & 0x7fffffff;
+      return rng % n;
+    };
+    let plies = 0;
+    while (!snapshot.sequence && snapshot.status === 'playing' && plies < 200) {
+      const move = snapshot.legalMoves[pick(snapshot.legalMoves.length)];
+      clients[snapshot.turn].send({ t: 'move', from: move.from, to: move.to, kind: move.kind });
+      snapshot = (await a.wait('state')).snapshot;
+      await b.wait('state');
+      plies++;
+    }
+    expect(snapshot.sequence).not.toBeNull();
+
+    // Durante a sequencia o turno NAO virou, e so ha lances de captura.
+    const emSequencia = snapshot.turn;
+    expect(snapshot.legalMoves.every((m) => m.captures.length > 0)).toBe(true);
+    expect(snapshot.legalMoves.every((m) => m.from === snapshot.sequence!.at)).toBe(true);
+
+    // Regra 3.4.5: continuar e opcional. Encerrar e sempre aceito.
+    clients[emSequencia].send({ t: 'endTurn' });
+    const depois = (await a.wait('state')).snapshot;
+    expect(depois.sequence).toBeNull();
+    expect(depois.turn).not.toBe(emSequencia);
+
+    a.close();
+    b.close();
+  }, 30_000);
 });

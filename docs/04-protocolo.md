@@ -239,9 +239,20 @@ Recarregar a aba continua reconectando, que é o caso que importa.
 | Socket fecha | O worker **continua vivo** com o estado intacto. O oponente recebe `{ t:'peer', status:'disconnected' }` e a interface mostra *"oponente desconectado — aguardando 5:00"* |
 | Reconexão dentro de 5 min | O cliente reenvia `join` com o `playerId` salvo. A thread principal reata o socket novo ao mesmo lugar e o worker reenvia o `snapshot` — a partida continua exatamente de onde parou |
 | Janela expira | `over` com `reason: 'abandoned'`, vitória do jogador que permaneceu, `worker.terminate()` |
+| Socket fecha **depois** do fim de jogo | Nada de abandono. O resultado já está congelado, e a partida vive apenas a sobrevida descrita abaixo |
 
 O relógio de 5 minutos vive na thread principal, não no worker: é uma preocupação de
-conexão, não de jogo.
+conexão, não de jogo. Ele é configurável por `FANORONA_ABANDON_MS`, que existe para o
+teste de rede poder observar o que acontece depois da janela expirar sem esperar cinco
+minutos de verdade.
+
+**Fim de jogo encerra a contagem.** Quando o worker anuncia `over`, a thread principal
+desarma as janelas de abandono pendentes e agenda a destruição da partida. Sem isso
+aconteciam duas coisas erradas: quem fechasse a aba depois de perder disparava, cinco
+minutos depois, um segundo `over` com `reason: 'abandoned'` — trocando o motivo na tela
+de quem já tinha vencido —, e a partida encerrada ficava viva para sempre segurando a
+thread dela. A sobrevida existe para que um F5 logo após o fim ainda encontre o placar
+final; depois dela, `join` responde `MATCH_NOT_FOUND`.
 
 ### 4.3 Detecção de queda silenciosa
 

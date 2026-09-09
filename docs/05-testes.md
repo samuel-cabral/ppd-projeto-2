@@ -6,13 +6,13 @@
 
 ## 1. O que é testado, e por quê
 
-**33 testes, em três arquivos** (`npm test`):
+**34 testes, em três arquivos** (`npm test`):
 
 | Arquivo | Testes | Camada | Como é testada | Motivo |
 |---|---|---|---|---|
 | `engine/engine.test.ts` | 17 | `engine/` | Testes unitários contra a literatura | É onde erro passa despercebido |
 | `client/matchState.test.ts` | 7 | `client/matchState.ts` | Testes unitários, mesmo motivo do `engine/` | Reducer puro — não importa WebSocket nem React, roda sem DOM |
-| `server/network.test.ts` | 9 | Protocolo + worker | Integração ponta a ponta, com servidor e sockets reais | Garante que as duas pontas concordam; o plumbing só é correto se a partida inteira funcionar |
+| `server/network.test.ts` | 10 | Protocolo + worker | Integração ponta a ponta, com servidor e sockets reais | Garante que as duas pontas concordam; o plumbing só é correto se a partida inteira funcionar |
 | — | — | Interface (renderização) | Verificação manual, com roteiro (§6) | Testar SVG automatizado custa mais do que vale aqui |
 
 O motor não importa `ws`, `worker_threads` nem React
@@ -97,6 +97,9 @@ joga uma partida roteirizada até o fim, verificando:
 - mensagem de chat enviada durante o turno do adversário chega aos dois lados;
 - fechar e reabrir a conexão com o mesmo `playerId` restaura o mesmo `snapshot`;
 - `resign` encerra com `over` para os dois lados;
+- depois do fim de jogo o resultado **congela**: quem fecha a aba não gera um segundo
+  `over` de abandono, e a partida encerrada é destruída depois da sobrevida em vez de
+  segurar a thread para sempre (ver [`04-protocolo.md` §4.2](04-protocolo.md));
 - em toda a partida roteirizada, os dois clientes recebem `snapshot` **idêntico** — é o
   teste que sustenta [ADR-003](adr/003-estado-completo-em-vez-de-delta.md) na prática.
 

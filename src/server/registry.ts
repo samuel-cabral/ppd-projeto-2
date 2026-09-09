@@ -15,8 +15,14 @@ import type {
   ToWorker,
 } from '../shared/protocol.js';
 
-/** Janela de reconexao (docs/04-protocolo.md 4.2). Vive aqui, nao no worker. */
-const ABANDON_MS = 5 * 60 * 1000;
+/**
+ * Janela de reconexao (docs/04-protocolo.md 4.2). Vive aqui, nao no worker.
+ * Configuravel pelo ambiente para o teste nao precisar esperar cinco minutos,
+ * do mesmo jeito que PORT ja e configuravel em `index.ts`.
+ */
+const ABANDON_MS = Number(process.env.FANORONA_ABANDON_MS ?? 5 * 60 * 1000);
+/** Sobrevida da partida ja encerrada: tempo de um F5 ainda ver o placar final. */
+const LINGER_MS = ABANDON_MS;
 const MAX_MATCHES = 50;
 
 interface Seat {
@@ -32,6 +38,10 @@ export interface Match {
   lastSnapshot: Snapshot | null;
   chat: { from: Color | 'system'; text: string; at: number }[];
   closed: boolean;
+  /** Partida ja tem resultado: nenhum abandono pode mais mudar o vencedor. */
+  over: boolean;
+  /** Destruicao agendada depois do fim de jogo. */
+  lingerTimer: NodeJS.Timeout | null;
 }
 
 const WORKER_URL = new URL('./match.worker.js', import.meta.url);
@@ -58,6 +68,8 @@ export class MatchRegistry {
       lastSnapshot: null,
       chat: [],
       closed: false,
+      over: false,
+      lingerTimer: null,
     };
     worker.on('message', (msg: FromWorker) => this.onWorkerMessage(match, msg));
     worker.on('error', (err) => {
@@ -143,7 +155,15 @@ export class MatchRegistry {
     if (!seat || seat.socket !== socket) return; // ja foi substituido por uma reconexao
     seat.socket = null;
     this.notifyPeer(match, color, 'disconnected');
-    console.log(`[match ${match.id}] ${color} desconectou — janela de 5 min`);
+
+    // Partida ja decidida nao tem abandono: quem saiu depois do resultado nao
+    // pode mudar o vencedor, e a destruicao ja esta agendada pelo `over`.
+    if (match.over) {
+      console.log(`[match ${match.id}] ${color} saiu — partida ja encerrada`);
+      return;
+    }
+
+    console.log(`[match ${match.id}] ${color} desconectou — janela de reconexao`);
     seat.abandonTimer = setTimeout(() => {
       const winner: Color = color === 'W' ? 'B' : 'W';
       this.broadcast(match, { t: 'over', winner, reason: 'abandoned' });
@@ -163,6 +183,7 @@ export class MatchRegistry {
         this.broadcast(match, { t: 'state', snapshot: msg.snapshot });
         return;
       case 'over':
+        this.finish(match);
         this.broadcast(match, { t: 'over', winner: msg.winner, reason: msg.reason });
         return;
       case 'rejected': {
@@ -182,9 +203,31 @@ export class MatchRegistry {
     }
   }
 
+  /**
+   * Fim de jogo: o resultado esta congelado. Desarma as janelas de abandono
+   * pendentes — sem isso, um jogador que fecha a aba depois do fim ainda
+   * dispararia um `over` de abandono cinco minutos depois, trocando o motivo
+   * na tela de quem ja tinha vencido — e agenda a destruicao, senao a partida
+   * (e a thread dela) ficaria viva para sempre.
+   */
+  private finish(match: Match): void {
+    if (match.over) return;
+    match.over = true;
+    for (const color of ['W', 'B'] as const) {
+      const seat = match.seats[color];
+      if (seat?.abandonTimer) {
+        clearTimeout(seat.abandonTimer);
+        seat.abandonTimer = null;
+      }
+    }
+    match.lingerTimer = setTimeout(() => this.destroy(match), LINGER_MS);
+    match.lingerTimer.unref?.();
+  }
+
   destroy(match: Match): void {
     if (match.closed) return;
     match.closed = true;
+    if (match.lingerTimer) clearTimeout(match.lingerTimer);
     for (const color of ['W', 'B'] as const) {
       const seat = match.seats[color];
       if (seat?.abandonTimer) clearTimeout(seat.abandonTimer);

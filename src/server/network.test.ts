@@ -9,6 +9,8 @@ import { WebSocket } from 'ws';
 import type { ClientMessage, ServerMessage, Snapshot } from '../shared/protocol.js';
 
 const PORT = 3100 + Math.floor(Math.random() * 400);
+/** Janela de reconexao/sobrevida usada pelo servidor sob teste. */
+const ABANDON_MS = 2000;
 const BASE = `http://127.0.0.1:${PORT}`;
 let server: ChildProcess;
 
@@ -94,7 +96,9 @@ async function seatBoth(a: TestClient, b: TestClient, matchId: string): Promise<
 beforeAll(async () => {
   execFileSync('node', ['scripts/build-server.mjs'], { stdio: 'ignore' });
   server = spawn('node', ['dist/server/index.js'], {
-    env: { ...process.env, PORT: String(PORT) },
+    // Janela de reconexao curta: o teste precisa ver o que acontece DEPOIS
+    // dela expirar, e cinco minutos de verdade nao cabem numa suite.
+    env: { ...process.env, PORT: String(PORT), FANORONA_ABANDON_MS: String(ABANDON_MS) },
     stdio: ['ignore', 'pipe', 'inherit'],
   });
   await new Promise<void>((resolve, reject) => {
@@ -245,6 +249,29 @@ describe('protocolo em rede', () => {
     a.close();
     b.close();
   });
+
+  it('fim de jogo congela o resultado e a partida some depois da sobrevida', async () => {
+    const matchId = await createMatch();
+    const a = new TestClient();
+    const b = new TestClient();
+    await Promise.all([a.open(), b.open()]);
+    await seatBoth(a, b, matchId);
+    await a.wait('state', (m) => (m as { snapshot: Snapshot }).snapshot.status === 'playing');
+
+    a.send({ t: 'resign' });
+    expect(await b.wait('over')).toMatchObject({ winner: 'B', reason: 'resign' });
+
+    // O perdedor fecha a aba DEPOIS do fim. Isso nao pode virar abandono: o
+    // vencedor ja venceu, e um segundo `over` trocaria o motivo na tela dele.
+    a.close();
+    await expect(b.wait('over', undefined, ABANDON_MS + 400)).rejects.toThrow(/timeout/);
+
+    // E a partida encerrada nao fica viva para sempre segurando a thread dela.
+    const info = await fetch(`${BASE}/api/match?id=${matchId}`);
+    expect(info.status).toBe(404);
+
+    b.close();
+  }, 15_000);
 
   it('chat chega aos dois lados e o historico e reenviado numa reconexao', async () => {
     const matchId = await createMatch();

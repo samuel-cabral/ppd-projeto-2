@@ -14,7 +14,7 @@ O projeto já tem fronteiras arquiteturais corretas e elas são a espinha dorsal
 O problema não é que essas regras estejam erradas. É que elas são **convenção**. Existem no
 comentário do topo de cada arquivo e neste diretório de documentação, e são sustentadas pela
 disciplina de quem escreve. Nada no repositório impede que amanhã alguém importe `legalMoves`
-dentro de `server/index.ts` e o projeto continue compilando, com os 33 testes verdes.
+dentro de `server/index.ts` e o projeto continue compilando, com os testes verdes.
 
 Há também uma concentração de responsabilidades em um arquivo só. `match.worker.ts` mistura
 três coisas que a Clean Architecture separa em anéis diferentes:

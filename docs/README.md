@@ -10,6 +10,8 @@ servidor autoritativo, chat em tempo real durante toda a partida e **paralelismo
 | **Professor** | Cidcley T. de Souza |
 | **Aluno** | Samuel Cabral Lima |
 | **Entrega** | 09/09/2026 até 13h — assunto *Projeto Sockets* (prazo original 02/09, renegociado em 03/09) |
+| **Apresentação** | 10/09/2026, pessoal — roteiro em [`../ROTEIRO.md`](../ROTEIRO.md) |
+| **Estado** | As 5 funcionalidades exigidas estão prontas e testadas. A Fase 5 do plano (bot, `/api/stats`, `blockedMoves`, banners) **não foi implementada** — ver [`07-mapa-de-avaliacao.md` §8](07-mapa-de-avaliacao.md) |
 | **Stack** | Node.js · TypeScript · React · WebSocket (`ws`) · `worker_threads` |
 
 ---
@@ -18,7 +20,7 @@ servidor autoritativo, chat em tempo real durante toda a partida e **paralelismo
 
 | Pergunta | Onde está a resposta |
 |---|---|
-| **Onde estão as threads?** | [`03-concorrencia.md`](03-concorrencia.md) — o que já é demonstrável hoje (§4.1) e a demonstração de bloqueio planejada (§4.2) |
+| **Onde estão as threads?** | [`03-concorrencia.md` §4](03-concorrencia.md) — contagem de threads do SO subindo e descendo (§4.1) e o bloqueio do event loop medido (§4.2). As duas são empíricas e reprodutíveis |
 | Cada requisito do enunciado está onde no código? | [`07-mapa-de-avaliacao.md` §3](07-mapa-de-avaliacao.md) — matriz de rastreabilidade |
 | Por que WebSocket e não socket TCP cru? | [`adr/001-websocket-em-vez-de-tcp-cru.md`](adr/001-websocket-em-vez-de-tcp-cru.md) |
 | Como o cliente é impedido de trapacear? | [`02-arquitetura.md` §3](02-arquitetura.md) — o cliente não conhece as regras |

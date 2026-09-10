@@ -2,11 +2,17 @@
 
 > Replanejamento arquitetural de **03/09/2026**, feito depois de reler o
 > [enunciado](referencias/enunciado.pdf) linha a linha e o código inteiro.
-> Entrega: **09/09/2026 até 13h**.
+> Entrega: **09/09/2026 até 13h** · apresentação em **10/09/2026**.
 >
 > Este documento existe por um motivo só: a nota tem exatamente três critérios, e
 > arquitetura **não é um deles**. Toda decisão registrada aqui é justificada por qual
 > critério ela move, ou não entra.
+>
+> ⚠️ **Estado real em 10/09:** das sete decisões da §4, **nenhuma das que exigiam código novo
+> foi implementada** (AD-1 `/api/stats`, AD-2 bot, AD-3 `blockedMoves`, AD-5 IPs da LAN,
+> AD-6 banners, AD-7 chat de sistema). A única executada foi a **AD-4**, que era uma decisão
+> de *não* fazer. A §3 (matriz de rastreabilidade) continua correta e é a fonte confiável
+> deste arquivo; a §7 (ordem de execução) é registro histórico. Ver a §8 no fim.
 
 ## 1. O que o enunciado pede, literalmente
 
@@ -173,10 +179,17 @@ Consequência concreta: se o professor tentar uma continuação que repete dire�
 texto dele, ilegal pelo nosso motor — a interface simplesmente não oferece o lance, e a leitura
 natural dele é *"tem bug"*.
 
-**Mitigação (via AD-3):** o lance aparece **visível e bloqueado, com o motivo escrito**
-("direção repetida — regra 3.4.4"), em vez de sumir. A divergência deixa de ser um bug
-aparente e vira a prova de que a regra foi estudada. Se ele discordar, a conversa acontece com
-a regra na tela — e o comportamento é uma linha de código para inverter.
+~~**Mitigação (via AD-3):** o lance aparece visível e bloqueado, com o motivo escrito.~~
+
+⛔ **Esta mitigação não existe.** A AD-3 (`blockedMoves`) não foi implementada, então o lance
+continua **sumindo silenciosamente** da lista de destinos. O risco R-1 está **aberto**.
+
+**Mitigação real, sem código:** antecipar em voz alta, antes de jogar, que o motor segue a
+regra canônica do paper e é mais restritivo que o enunciado em três pontos — e que um lance
+não oferecido é isso, não bug. Dizer antes de acontecer transforma o que pareceria defeito na
+prova de que a regra foi estudada. O texto pronto está no `ROTEIRO.md` da raiz. E o
+comportamento continua sendo **uma linha para inverter** (`moves.ts:150`), se ele preferir a
+regra do enunciado.
 
 ### R-2 🟡 — A apresentação é pessoal e obrigatória
 
@@ -207,7 +220,10 @@ Nenhuma reescrita estrutural entra neste replanejamento. O código está bem fat
 (`engine/` puro, servidor sem regra, cliente sem regra) e refatorar arquitetura a seis dias da
 entrega é risco sem retorno de nota — arquitetura não é critério.
 
-## 7. Ordem de execução
+## 7. Ordem de execução — registro histórico de 03/09
+
+> ⚠️ **Nada abaixo de P0 foi executado.** Mantido como registro do que foi priorizado, não
+> como plano vivo. O resultado real está na §8.
 
 | Prioridade | Item | Critério que move | Fase |
 |---|---|---|---|
@@ -220,3 +236,45 @@ entrega é risco sem retorno de nota — arquitetura não é critério.
 | P2 | Mensagens de sistema no chat (AD-7) | UI | 5 |
 
 Cronograma dia a dia em [`06-plano-de-implementacao.md`](06-plano-de-implementacao.md).
+
+---
+
+## 8. O que de fato ficou pronto — fechamento em 10/09/2026
+
+Escrito depois da entrega, contra o código em `main = a848c35`.
+
+### As 5 funcionalidades nominais: ✅ todas
+
+Prontas desde 03/09 e cobertas por teste de rede ponta a ponta. É o que o enunciado exige
+nominalmente, e é o que sustenta os critérios *UI* e *Funcionalidades*.
+
+### O que foi planejado e não entrou
+
+| Item | Decisão de |
+|---|---|
+| `GET /api/stats` + painel de threads (AD-1) | falta de tempo |
+| `server/bot.ts` + seletor de thread (AD-2) | falta de tempo |
+| `blockedMoves` (AD-3) | falta de tempo — **deixa o risco R-1 aberto** |
+| IPs da LAN no boot (AD-5) | falta de tempo |
+| Banners de início e fim (AD-6) | falta de tempo |
+| Chat de sistema (AD-7) | falta de tempo |
+| Executável (AD-4) | **decisão deliberada** — [ADR-012](adr/012-entrega-sem-binario.md) |
+| Refatoração DDD/Clean da [ADR-010](adr/010-camadas-por-contexto-delimitado.md) | falta de tempo — a árvore continua `engine/ server/ client/` |
+
+### O que ocupou o lugar deles no critério *Explicação do Código*
+
+Duas demonstrações empíricas que **não estavam previstas em lugar nenhum deste documento**, e
+que não precisaram de código novo — ambas em [`03-concorrencia.md` §4](03-concorrencia.md):
+
+1. **Contagem de threads do SO** (`ps -M`): `+1` ao criar a partida, `−1` quando ela é
+   destruída. O número vem do sistema operacional, não da aplicação — é mais forte que o
+   painel `/api/stats` que a AD-1 planejava, justamente por não passar pelo código do autor.
+2. **Bloqueio do event loop medido** (`JSON.parse` de 90 MB na thread principal congelando o
+   chat de *outra* partida por 1,1 s). A AD-2 supunha que só o bot poderia demonstrar isso.
+   Estava errado: o caminho de entrada já tinha a tarefa de CPU, e ela é ao mesmo tempo um
+   achado de segurança com correção de uma linha.
+
+**A lição que vale registrar:** as duas melhores provas de concorrência do projeto vieram de
+*medir o que já existia*, não de construir um instrumento novo. O replanejamento de 03/09
+gastou seis dias de plano num aparato de demonstração que não foi construído, enquanto a
+demonstração melhor estava a um `ps -M` de distância.

@@ -156,12 +156,19 @@ Detalhamento em [`04-protocolo.md` §4](04-protocolo.md).
 > `game/domain/`, `server/` se divide entre `game/` e `table/`. Este documento é reescrito ao fim
 > da refatoração; até lá, a §2 descreve a estrutura em vigor e a ADR-010 descreve a de destino.
 
-## 7. Arquitetura-alvo — o que muda até 09/09
+## 7. Arquitetura-alvo do replanejamento de 03/09 — ⛔ não implementada
 
-O replanejamento de 03/09 ([`07-mapa-de-avaliacao.md`](07-mapa-de-avaliacao.md)) não altera
-nenhuma fronteira: a thread principal continua sem calcular regra, o worker continua sem tocar
-em socket, o cliente continua sem conhecer o jogo. O que entra são **três componentes novos**,
-todos encaixados nas fronteiras que já existem:
+> **Nenhum dos três componentes abaixo entrou no código.** Confirmado por inspeção em
+> 10/09/2026. A seção fica como registro do que foi projetado; o estado real está em
+> [`07-mapa-de-avaliacao.md` §8](07-mapa-de-avaliacao.md).
+>
+> As **fronteiras** descritas nas §1–§5 acima continuam válidas e verificáveis — é a parte
+> deste documento que descreve o código que existe.
+
+O replanejamento de 03/09 ([`07-mapa-de-avaliacao.md`](07-mapa-de-avaliacao.md)) não alterava
+nenhuma fronteira: a thread principal continuaria sem calcular regra, o worker sem tocar em
+socket, o cliente sem conhecer o jogo. O que entraria são **três componentes novos**, todos
+encaixados nas fronteiras que já existem:
 
 | Componente | Onde vive | Fronteira que respeita |
 |---|---|---|
@@ -169,6 +176,11 @@ todos encaixados nas fronteiras que já existem:
 | `blockedMoves` no `Snapshot` ([ADR-009](adr/009-lances-bloqueados-no-protocolo.md)) | `engine/moves.ts` → worker → `Snapshot` | O cliente continua burro: desenha o que recebe, inclusive o motivo do bloqueio |
 | `server/bot.ts` (Fase 5) | Dentro do worker, por padrão | É a tarefa de CPU que justifica a existência do worker ([ADR-002](adr/002-worker-thread-por-partida.md)) |
 
-O bot é o único que ganha uma exceção deliberada: um seletor permite rodá-lo **na thread
+O bot seria o único a ganhar uma exceção deliberada: um seletor permitiria rodá-lo **na thread
 principal**, propositalmente violando a fronteira, para demonstrar ao vivo o que acontece
-quando ela é violada ([`03-concorrencia.md` §4.2](03-concorrencia.md)).
+quando ela é violada.
+
+> **O que aconteceu no lugar:** a violação da fronteira não precisou ser construída — ela já
+> existia. O `JSON.parse` de `parseClientMessage` roda na thread principal antes de qualquer
+> validação, e um payload grande o bastante congela todas as partidas. A demonstração foi
+> feita com isso, medida, e está em [`03-concorrencia.md` §4.2](03-concorrencia.md).

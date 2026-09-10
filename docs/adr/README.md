@@ -20,7 +20,15 @@ descrever por semanas uma tela que não existia.
 | [009](009-lances-bloqueados-no-protocolo.md) | Lances bloqueados viajam no protocolo | Aceita | 🔲 Fase 5 |
 | [010](010-camadas-por-contexto-delimitado.md) | Camadas por contexto delimitado (DDD + Clean Architecture) | Aceita | 🔲 Fase 2 |
 | [011](011-bot-como-instrumento-de-demonstracao.md) | Oponente artificial como instrumento de demonstração | Aceita | 🔲 Fase 5 |
-| [012](012-entrega-sem-binario.md) | Entrega sem binário: script de start documentado | Aceita | 🔲 Fase 6 |
+| [012](012-entrega-sem-binario.md) | Entrega sem binário: script de start documentado | Aceita | ✅ cumprida (é uma decisão de *não* fazer) |
+
+> **Fechamento em 10/09/2026.** Das seis decisões marcadas 🔲, **nenhuma foi implementada** —
+> 006, 008, 009, 010 e 011 continuam como projeto. As 001–005 estão no código e são a
+> espinha dorsal da defesa oral; a 012 foi cumprida por omissão deliberada. O balanço
+> completo está em [`07-mapa-de-avaliacao.md` §8](../07-mapa-de-avaliacao.md).
+>
+> A coluna "No código?" era o ponto do arquivo. Ela funcionou: nenhuma dessas ADRs precisou
+> ser reescrita para admitir o que não saiu, porque nenhuma tinha afirmado o contrário.
 
 As decisões 001–005 são de **19/08/2026**, tomadas antes da primeira linha de código.
 As 006–009 são de **03/09/2026**, do replanejamento registrado em

@@ -157,8 +157,13 @@ Executado antes da entrega, uma vez, com duas abas abertas:
 6. Enviar chat durante o turno do adversário — chega imediatamente.
 7. Desistir — a confirmação aparece e os dois lados veem o vencedor com o motivo.
 8. Fechar uma aba e reabrir o link — a partida continua no mesmo ponto.
-9. **Pendente até a Fase 5 (bot ainda não implementado):** rodar a IA na thread principal —
-   o chat congela. No worker — o chat flui. ([`03-concorrencia.md` §4.2](03-concorrencia.md))
+9. **Threads:** rodar `ps -M` no processo do servidor antes e depois de criar partidas — a
+   contagem sobe `+1` por partida e desce `−1` quando a partida encerrada é destruída.
+   Depois, o bloqueio do event loop: um `JSON.parse` grande na thread principal congela o
+   chat de **outra** partida. ([`03-concorrencia.md` §4](03-concorrencia.md))
+   > Este item dizia *"pendente até a Fase 5 (bot)"*. O bot não foi implementado, e a
+   > verificação passou a ser feita sem ele — as duas medições acima não dependem de código
+   > novo.
 
 ## 7. O que não é testado, e por quê
 

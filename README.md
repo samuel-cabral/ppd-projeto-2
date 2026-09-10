@@ -54,8 +54,8 @@ npm test
 | `src/engine/moves.ts` | Geracao de lances, captura em linha, sequencias, fim de jogo. |
 | `src/engine/notation.ts` | Notacao `b2-c2A`. |
 | `src/shared/protocol.ts` | Tipos das mensagens, importados pelos dois lados. |
-| `src/server/index.ts` | HTTP + WebSocket. So entrada e saida. |
-| `src/server/registry.ts` | Ciclo de vida das partidas, reconexao, ping/pong, chat. |
+| `src/server/index.ts` | HTTP + WebSocket, handshake, heartbeat ping/pong. So entrada e saida. |
+| `src/server/registry.ts` | Ciclo de vida das partidas: assentos, reconexao, chat, destruicao da partida encerrada. |
 | `src/server/match.worker.ts` | A thread da partida: recebe intencao, devolve estado. |
 | `src/client/matchState.ts` | Reducer puro: interpreta mensagens do servidor sem WebSocket nem React, por isso e testado como o `engine/`. |
 | `src/client/` | Interface React + SVG. |

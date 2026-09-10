@@ -1,11 +1,13 @@
 # Plano de implementação
 
-> Início: 19/08/2026 · Entrega original: 02/09/2026 até 13h.
-> **Prazo passou sem entrega. Renegociado com o Prof. Cidcley em 03/09/2026: nova entrega
-> 09/09/2026 até 13h**, mesma condição (e-mail até 13h, assunto "Projeto Sockets").
+> Início: 19/08/2026 · Entrega original: 02/09/2026 · renegociada para **09/09/2026 até 13h**
+> (prazo já vencido). Apresentação pessoal em **10/09/2026**.
 >
-> As Fases 1–4 abaixo são o registro do que foi planejado e quando foi de fato concluído.
-> A partir da Fase 5 o plano foi refeito em 03/09 para caber na janela nova (6 dias).
+> ⚠️ **Este documento é registro histórico do planejamento, não descrição do que existe.**
+> As Fases 1–4 foram concluídas. **A Fase 5 não foi implementada** e a Fase 6 saiu
+> parcialmente. O que existe de fato no código está em
+> [`07-mapa-de-avaliacao.md` §3](07-mapa-de-avaliacao.md); o roteiro de apresentação que
+> vale é o `ROTEIRO.md` da raiz do repositório, **não a §3 abaixo**.
 
 ## 1. Fases
 
@@ -68,7 +70,16 @@ sequências de captura.
 **Pronto quando:** os 13 requisitos de [`01-visao-de-produto.md` §4](01-visao-de-produto.md)
 existem e funcionam. **Atingido em 03/09/2026.**
 
-### 🔲 Fase 5 — Visibilidade das regras e das threads · 04–06/09 · 3 dias
+### ⛔ Fase 5 — Visibilidade das regras e das threads · 04–06/09 · **NÃO IMPLEMENTADA**
+
+> **Nenhum dos itens abaixo entrou no código.** Confirmado por inspeção em 09–10/09: não
+> existem `src/server/bot.ts`, `GET /api/stats`, `blockedMoves`, banners de início/fim nem
+> mensagens de sistema no chat. O texto fica como registro do que foi planejado.
+>
+> **O que substituiu a demonstração de threads na apresentação:** a contagem de threads do
+> SO via `ps -M`, que sobe `+1` por partida e desce `−1` quando a partida é destruída, e a
+> medição do bloqueio do event loop pelo `JSON.parse` — as duas em
+> [`03-concorrencia.md` §4](03-concorrencia.md). Nenhuma das duas precisou do bot.
 
 Replanejada em 03/09 a partir do [mapa de avaliação](07-mapa-de-avaliacao.md). O tema da fase
 não é "adicionar recursos": é **tornar visível o que já funciona mas não aparece na tela**.
@@ -96,20 +107,21 @@ invisível é funcionalidade não pontuada.
 busca na thread principal o chat e o `/api/stats` visivelmente congelam, e com a busca no
 worker, não.
 
-### 🔲 Fase 6 — Entrega · 07–08/09 · 2 dias
+### 🟡 Fase 6 — Entrega · 07–09/09 · **parcial**
 
-- **Executável via Node SEA** ([ADR-007](adr/007-executavel-via-node-sea.md)) — entregável
-  obrigatório do enunciado; plano B (`.zip` + script) documentado se travar
-- **Duas máquinas de verdade** ([ADR-008](adr/008-implantacao-multi-maquina.md)): servidor
-  anuncia os IPs de LAN no boot; testar notebook contra notebook na mesma rede, com o firewall
-  do macOS já autorizado. `ngrok` como plano B
-- `README.md` com instruções de execução conferidas do zero, em máquina limpa
-- Revisão da documentação contra o código final — repetir o audit de 03/09 (doc reescrita para
-  bater com o código, não o contrário)
-- Roteiro de apresentação (§3) e ensaio cronometrado
+- ~~**Executável via Node SEA**~~ — **cancelado por decisão**, não por falta de tempo:
+  [ADR-012](adr/012-entrega-sem-binario.md) substitui a [ADR-007](adr/007-executavel-via-node-sea.md).
+  A cláusula *"se a linguagem permitir"* é invocada; `npm start` é a entrega
+- 🔲 **Duas máquinas de verdade** ([ADR-008](adr/008-implantacao-multi-maquina.md)):
+  **não implementado** — o servidor ainda só imprime `localhost` no boot; o IP da LAN
+  precisa ser descoberto na mão (`ipconfig getifaddr en0`). Jogar entre máquinas **funciona**;
+  o que falta é o servidor anunciar o endereço
+- ✅ `README.md` com instruções de execução
+- ✅ Revisão da documentação contra o código final — feita em 09/09 e 10/09
+- ✅ Roteiro de apresentação — **`ROTEIRO.md` na raiz**, que substitui a §3 abaixo
 
-**Pronto quando:** o jogo roda entre **duas máquinas diferentes** — que é a frase de objetivo do
-enunciado — **e** existe um executável funcionando fora deste repositório.
+**Resultado:** o jogo roda entre duas máquinas diferentes pela LAN, que é a frase de objetivo
+do enunciado. Não há executável, e a ausência está justificada por escrito.
 
 ### Folga — 09/09 manhã
 
@@ -125,24 +137,31 @@ maior probabilidade de questionar são escritas à mão:
 |---|---|
 | `engine/board.ts`, `engine/moves.ts` — as regras | Estrutura do projeto, configuração de build |
 | `server/index.ts` — handshake e roteamento do socket | `server/registry.ts` |
-| `server/match.worker.ts` — o plumbing das threads | `server/bot.ts`, `client/**`, testes |
+| `server/match.worker.ts` — o plumbing das threads | `client/**`, testes (`server/bot.ts` estava previsto aqui e nunca existiu) |
 
-## 3. Roteiro da apresentação — 10 minutos
+## 3. Roteiro da apresentação — ⛔ OBSOLETO, não use
 
-| Tempo | O quê | Critério que ataca |
-|---|---|---|
-| 0:00 | Abrir a partida em **duas máquinas diferentes** pela rede — é a frase de objetivo do enunciado, executada na frente dele | Funcionalidades |
-| 1:00 | Jogar `d3-e3` mostrando o seletor aproximação × afastamento | UI |
-| 2:30 | Mostrar um paika **bloqueado, com o motivo escrito** — a captura é obrigatória | UI |
-| 3:30 | Executar uma sequência de capturas; explicar por que o turno não vira, e mostrar a continuação bloqueada por direção repetida | UI + Explicação |
-| 5:00 | Chat durante o turno do adversário | Funcionalidades |
-| 5:30 | **Painel de threads:** duas partidas abertas, dois `threadId` diferentes, nenhum igual ao da thread principal | Explicação |
-| 6:00 | **Demonstração do bloqueio:** rodar a IA na thread principal — o chat e o próprio painel congelam; depois no worker — tudo flui | Explicação |
-| 8:00 | Percorrer o código: `engine` puro → `index.ts` → `match.worker.ts` | Explicação |
-| 9:30 | Fechar com a desistência e o banner de vencedor | Funcionalidades |
+> **Este roteiro foi escrito em 03/09 contra a Fase 5 planejada. Cinco dos nove passos
+> demonstram coisas que não existem no código.** Ensaiar por ele significa clicar ao vivo
+> em telas que nunca foram implementadas.
+>
+> **O roteiro em vigor é o `ROTEIRO.md` da raiz do repositório**, escrito em 10/09 contra o
+> código real e verificado passo a passo.
 
-O trecho de 5:30 a 8:00 é o núcleo da defesa — é onde os 10 pontos de *Explicação do Código*
-são ganhos ou perdidos — e deve ser ensaiado até sair sem hesitação.
+O que este roteiro prometia e não existe, registrado para não ser tentado de novo:
+
+| Passo prometido | Situação |
+|---|---|
+| Paika bloqueado **com o motivo escrito** | ❌ `blockedMoves` não existe; o paika só some da lista |
+| Continuação bloqueada por direção repetida, marcada na tela | ❌ o destino só some |
+| **Painel de threads** com dois `threadId` | ❌ não existe `/api/stats` nem painel |
+| Rodar **a IA** na thread principal | ❌ não existe `bot.ts` |
+| Banner de vencedor | ❌ é uma linha de texto no painel lateral |
+| Abrir em duas máquinas pela rede | 🟡 funciona, mas o IP precisa ser descoberto na mão |
+
+A demonstração de threads que **de fato** foi ao ar está em
+[`03-concorrencia.md` §4](03-concorrencia.md): contagem de threads do SO subindo e descendo,
+e a medição do bloqueio do event loop.
 
 ## 4. Riscos e ordem de corte
 
@@ -166,8 +185,18 @@ Se o cronograma apertar de novo, cortar **nesta ordem**:
    demonstrável hoje ([`03-concorrencia.md` §4.1](03-concorrencia.md): chat durante o turno
    do adversário, duas partidas simultâneas isoladas)
 
-**Nunca cortar:** as 5 funcionalidades exigidas (já entregues) e o executável — ambos são
-condição de entrega do enunciado, não apenas de nota.
+**Nunca cortar:** as 5 funcionalidades exigidas — condição de entrega do enunciado, não
+apenas de nota. Foram entregues.
+
+> ⚠️ Esta linha dizia *"e o executável"* até 10/09, contradizendo a
+> [ADR-012](adr/012-entrega-sem-binario.md), que decidiu em 06/09 não produzir binário. A
+> contradição era do documento, não da decisão: o executável **não** é condição de entrega,
+> porque a cláusula do enunciado é condicional (*"se a linguagem de programação permitir"*).
+>
+> **O corte 3 acontecer de fato:** o bot inteiro foi cortado. A defesa das threads não ficou
+> "só no discurso" como esta seção previa — ela ficou na contagem de threads do SO e na
+> medição do bloqueio do event loop ([`03-concorrencia.md` §4](03-concorrencia.md)), as duas
+> empíricas e nenhuma prevista aqui.
 
 ## 5. Entrega
 

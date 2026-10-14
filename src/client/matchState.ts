@@ -1,19 +1,23 @@
 /**
- * Estado do cliente como funcao pura das mensagens do servidor.
+ * Estado do cliente como funcao pura dos eventos da partida.
  *
- * Extraido do `switch` que antes vivia dentro do callback do WebSocket em
- * `useMatch.ts`. A mesma ideia do motor (docs/02-arquitetura.md secao 2):
- * a logica que decide "o que essa mensagem significa para o estado" nao
- * precisa de socket nem de React para ser correta, e por isso roda em teste
- * sem subir nenhum dos dois.
+ * Cada evento nasce de uma chamada RPC: o retorno de `join`, um callback do
+ * servidor (`onState`, `onChat`, `onPeer`, `onOver`) ou a recusa de uma
+ * operacao. A mesma ideia do motor (docs/02-arquitetura.md secao 2): a logica
+ * que decide "o que esse evento significa para o estado" nao precisa de rede
+ * nem de React para ser correta, e por isso roda em teste sem subir nenhum dos dois.
  */
-import type { Color, OverReason, ServerMessage, Snapshot } from '../shared/protocol.js';
+import type { ChatEntry, Color, OverReason, Snapshot } from '../shared/protocol.js';
 
-export interface ChatEntry {
-  from: Color | 'system';
-  text: string;
-  at: number;
-}
+export type { ChatEntry };
+
+export type MatchEvent =
+  | { t: 'joined'; playerId: string; color: Color; matchId: string }
+  | { t: 'state'; snapshot: Snapshot }
+  | { t: 'chat'; from: Color | 'system'; text: string; at: number }
+  | { t: 'peer'; status: 'connected' | 'disconnected' }
+  | { t: 'over'; winner: Color | null; reason: OverReason }
+  | { t: 'error'; message: string };
 
 export interface MatchState {
   playerId: string | null;
@@ -35,7 +39,7 @@ export const initialMatchState: MatchState = {
   chat: [],
 };
 
-export function reduceMatch(state: MatchState, msg: ServerMessage): MatchState {
+export function reduceMatch(state: MatchState, msg: MatchEvent): MatchState {
   switch (msg.t) {
     case 'joined':
       return { ...state, playerId: msg.playerId, color: msg.color, error: null };

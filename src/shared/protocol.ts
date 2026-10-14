@@ -1,8 +1,8 @@
 /**
- * Tipos das mensagens, importados pelo cliente E pelo servidor.
- * Uma mensagem que mude de forma quebra a compilacao dos dois lados no mesmo
- * instante — o compilador e quem garante que o protocolo nao desalinhe.
- * Ver docs/04-protocolo.md.
+ * A INTERFACE DE OPERACOES do sistema: o contrato remoto, importado pelo
+ * cliente E pelo servidor. Mudar a assinatura de uma operacao quebra a
+ * compilacao dos dois lados no mesmo instante, como uma interface `Remote`
+ * do Java RMI. Ver docs/08-rpc.md.
  *
  * Os tipos de dominio (Point, Color, Cell, Kind, Move) vem do motor, que nao
  * importa nada. Aqui eles sao so reexportados, para nao existirem duas
@@ -33,74 +33,85 @@ export interface Snapshot {
   over: { winner: Color | null; reason: OverReason } | null;
 }
 
-// --- Navegador -> servidor -------------------------------------------------
+export interface ChatEntry {
+  from: Color | 'system';
+  text: string;
+  at: number;
+}
 
-export type ClientMessage =
-  | { t: 'join'; matchId: string; playerId?: string }
-  | { t: 'move'; from: Point; to: Point; kind: Kind }
-  | { t: 'endTurn' }
-  | { t: 'resign' }
-  | { t: 'chat'; text: string };
+// --- Operacoes que o NAVEGADOR invoca no SERVIDOR --------------------------
+//
+// Toda chamada tem resposta: `await servidor.move(...)` so termina quando o
+// worker da partida aceitou ou recusou o lance. Recusa chega como erro RPC
+// (codigo -32000) com o ErrorCode em `data`.
 
-// --- Servidor -> navegador -------------------------------------------------
+export interface FanoronaServer {
+  /** Senta o jogador na partida. `playerId` presente = reconexao no mesmo assento. */
+  join(params: { matchId: string; playerId?: string }): { playerId: string; color: Color; matchId: string };
+  /** Lance: movimento simples (P), captura por aproximacao (A) ou afastamento (W). */
+  move(params: { from: Point; to: Point; kind: Kind }): void;
+  /** Encerra uma sequencia de capturas (continuar e opcional) e passa a vez. */
+  endTurn(): void;
+  /** Desistencia: o adversario vence. */
+  resign(): void;
+  /** Mensagem de chat, entregue aos dois jogadores. */
+  sendChat(params: { text: string }): void;
+}
 
-export type ServerMessage =
-  | { t: 'joined'; playerId: string; color: Color; matchId: string }
-  | { t: 'state'; snapshot: Snapshot }
-  | { t: 'chat'; from: Color | 'system'; text: string; at: number }
-  | { t: 'peer'; status: 'connected' | 'disconnected' }
-  | { t: 'over'; winner: Color | null; reason: OverReason }
-  | { t: 'error'; code: ErrorCode; message: string };
+// --- Callbacks que o SERVIDOR invoca no NAVEGADOR --------------------------
+//
+// Mao unica (notificacao JSON-RPC, sem id): o servidor avisa, nao espera
+// resposta. E o equivalente ao callback de cliente do RMI, onde o cliente
+// tambem exporta um objeto remoto para o servidor chamar.
+
+export interface FanoronaClient {
+  /** Estado completo da partida, enviado por inteiro a cada mudanca (ADR-003). */
+  onState(params: { snapshot: Snapshot }): void;
+  onChat(params: ChatEntry): void;
+  /** O adversario conectou ou caiu. */
+  onPeer(params: { status: 'connected' | 'disconnected' }): void;
+  onOver(params: { winner: Color | null; reason: OverReason }): void;
+}
 
 // --- Thread principal <-> worker (postMessage) -----------------------------
 
 export type ToWorker =
   | { t: 'init'; matchId: string }
   | { t: 'attach'; playerId: string; color: Color }
-  | { t: 'intent'; playerId: string; move: { from: Point; to: Point; kind: Kind } }
-  | { t: 'endTurn'; playerId: string }
-  | { t: 'resign'; playerId: string };
+  | { t: 'intent'; req: number; playerId: string; move: { from: Point; to: Point; kind: Kind } }
+  | { t: 'endTurn'; req: number; playerId: string }
+  | { t: 'resign'; req: number; playerId: string };
 
 export type FromWorker =
   | { t: 'state'; snapshot: Snapshot }
-  | { t: 'rejected'; playerId: string; code: ErrorCode }
+  /** Resposta a um pedido: `req` casa com o pedido, `code` presente = recusado. */
+  | { t: 'done'; req: number; code?: ErrorCode }
   | { t: 'over'; winner: Color | null; reason: OverReason };
 
 /**
- * Validacao na fronteira: nada entra no worker sem ter sido verificado aqui.
- * Retorna null quando o payload nao e uma mensagem reconhecida.
+ * Validacao na fronteira: os parametros chegam da rede como `unknown` e nada
+ * entra no worker sem passar por aqui. Retorna null quando sao invalidos.
  */
-export function parseClientMessage(raw: string): ClientMessage | null {
-  let data: unknown;
-  try {
-    data = JSON.parse(raw);
-  } catch {
-    return null;
-  }
-  if (typeof data !== 'object' || data === null) return null;
-  const msg = data as Record<string, unknown>;
-  const point = (v: unknown) => typeof v === 'string' && /^[a-i][1-5]$/.test(v);
+const isPoint = (v: unknown): v is Point => typeof v === 'string' && /^[a-i][1-5]$/.test(v);
 
-  switch (msg.t) {
-    case 'join':
-      if (typeof msg.matchId !== 'string' || msg.matchId.length > 64) return null;
-      return {
-        t: 'join',
-        matchId: msg.matchId,
-        playerId: typeof msg.playerId === 'string' ? msg.playerId : undefined,
-      };
-    case 'move':
-      if (!point(msg.from) || !point(msg.to)) return null;
-      if (msg.kind !== 'P' && msg.kind !== 'A' && msg.kind !== 'W') return null;
-      return { t: 'move', from: msg.from as Point, to: msg.to as Point, kind: msg.kind };
-    case 'endTurn':
-      return { t: 'endTurn' };
-    case 'resign':
-      return { t: 'resign' };
-    case 'chat':
-      if (typeof msg.text !== 'string') return null;
-      return { t: 'chat', text: msg.text.slice(0, 500) };
-    default:
-      return null;
-  }
+export function parseJoin(p: unknown): { matchId: string; playerId?: string } | null {
+  if (typeof p !== 'object' || p === null) return null;
+  const { matchId, playerId } = p as Record<string, unknown>;
+  if (typeof matchId !== 'string' || matchId.length > 64) return null;
+  return { matchId, playerId: typeof playerId === 'string' ? playerId : undefined };
+}
+
+export function parseMove(p: unknown): { from: Point; to: Point; kind: Kind } | null {
+  if (typeof p !== 'object' || p === null) return null;
+  const { from, to, kind } = p as Record<string, unknown>;
+  if (!isPoint(from) || !isPoint(to)) return null;
+  if (kind !== 'P' && kind !== 'A' && kind !== 'W') return null;
+  return { from, to, kind };
+}
+
+export function parseChat(p: unknown): { text: string } | null {
+  if (typeof p !== 'object' || p === null) return null;
+  const { text } = p as Record<string, unknown>;
+  if (typeof text !== 'string') return null;
+  return { text: text.slice(0, 500) };
 }

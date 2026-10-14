@@ -1,12 +1,15 @@
 /**
- * Teste de integracao do protocolo: sobe o servidor de verdade em porta
- * efemera e conecta DOIS clientes WebSocket reais, que jogam uma partida
- * inteira ate a vitoria. Ver docs/05-testes.md secao 5.
+ * Teste de integracao do RPC: sobe o servidor de verdade em porta efemera e
+ * conecta DOIS clientes RPC reais, que jogam uma partida inteira ate a
+ * vitoria chamando as operacoes da interface `FanoronaServer`.
+ * Ver docs/05-testes.md secao 5 e docs/08-rpc.md.
  */
 import { execFileSync, spawn, type ChildProcess } from 'node:child_process';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { WebSocket } from 'ws';
-import type { ClientMessage, ServerMessage, Snapshot } from '../shared/protocol.js';
+import type { MatchEvent } from '../client/matchState.js';
+import type { FanoronaClient, FanoronaServer, Snapshot } from '../shared/protocol.js';
+import { RpcPeer, type Stub } from '../shared/rpc.js';
 
 const PORT = 3100 + Math.floor(Math.random() * 400);
 /** Janela de reconexao/sobrevida usada pelo servidor sob teste. */
@@ -14,20 +17,35 @@ const ABANDON_MS = 2000;
 const BASE = `http://127.0.0.1:${PORT}`;
 let server: ChildProcess;
 
-/** Cliente de terminal minimo: fila de mensagens + espera por predicado. */
+/** Callback do servidor, no mesmo formato de evento que o reducer do cliente usa. */
+type Callback = Exclude<MatchEvent, { t: 'joined' } | { t: 'error' }>;
+
+/**
+ * Cliente de terminal minimo: o stub do servidor para as chamadas, e uma
+ * fila dos callbacks recebidos com espera por predicado.
+ */
 class TestClient {
-  private queue: ServerMessage[] = [];
-  private waiters: { match: (m: ServerMessage) => boolean; resolve: (m: never) => void }[] = [];
+  private queue: Callback[] = [];
+  private waiters: { match: (m: Callback) => boolean; resolve: (m: never) => void }[] = [];
   readonly socket: WebSocket;
+  readonly server: Stub<FanoronaServer>;
 
   constructor() {
-    this.socket = new WebSocket(`ws://127.0.0.1:${PORT}/ws`);
-    this.socket.on('message', (raw) => {
-      const msg: ServerMessage = JSON.parse(raw.toString());
-      const hit = this.waiters.findIndex((w) => w.match(msg));
-      if (hit >= 0) this.waiters.splice(hit, 1)[0].resolve(msg as never);
-      else this.queue.push(msg);
+    this.socket = new WebSocket(`ws://127.0.0.1:${PORT}/rpc`);
+    const peer = new RpcPeer<FanoronaServer, FanoronaClient>((data) => this.socket.send(data), {
+      onState: ({ snapshot }) => this.push({ t: 'state', snapshot }),
+      onChat: (entry) => this.push({ t: 'chat', ...entry }),
+      onPeer: ({ status }) => this.push({ t: 'peer', status }),
+      onOver: ({ winner, reason }) => this.push({ t: 'over', winner, reason }),
     });
+    this.server = peer.stub;
+    this.socket.on('message', (raw) => void peer.receive(raw.toString()));
+  }
+
+  private push(msg: Callback): void {
+    const hit = this.waiters.findIndex((w) => w.match(msg));
+    if (hit >= 0) this.waiters.splice(hit, 1)[0].resolve(msg as never);
+    else this.queue.push(msg);
   }
 
   open(): Promise<void> {
@@ -37,27 +55,23 @@ class TestClient {
     });
   }
 
-  send(msg: ClientMessage): void {
-    this.socket.send(JSON.stringify(msg));
-  }
-
-  wait<T extends ServerMessage['t']>(t: T, extra?: (m: ServerMessage) => boolean, ms = 5000) {
-    const match = (m: ServerMessage) => m.t === t && (!extra || extra(m));
+  wait<T extends Callback['t']>(t: T, extra?: (m: Callback) => boolean, ms = 5000) {
+    const match = (m: Callback) => m.t === t && (!extra || extra(m));
     const found = this.queue.findIndex(match);
-    if (found >= 0) return Promise.resolve(this.queue.splice(found, 1)[0] as Extract<ServerMessage, { t: T }>);
-    return new Promise<Extract<ServerMessage, { t: T }>>((resolve, reject) => {
+    if (found >= 0) return Promise.resolve(this.queue.splice(found, 1)[0] as Extract<Callback, { t: T }>);
+    return new Promise<Extract<Callback, { t: T }>>((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error(`timeout esperando '${t}'`)), ms);
       this.waiters.push({
         match,
-        resolve: ((m: ServerMessage) => {
+        resolve: ((m: Callback) => {
           clearTimeout(timer);
-          resolve(m as Extract<ServerMessage, { t: T }>);
+          resolve(m as Extract<Callback, { t: T }>);
         }) as never,
       });
     });
   }
 
-  /** Descarta mensagens antigas ja enfileiradas, para o proximo wait ser o novo estado. */
+  /** Descarta callbacks antigos ja enfileirados, para o proximo wait ser o novo estado. */
   clear(): void {
     this.queue = [];
   }
@@ -76,7 +90,7 @@ async function createMatch(): Promise<string> {
 /**
  * Senta os dois clientes com os assentos determinados: `a` fica com as brancas.
  *
- * O `await` entre os dois `join` nao e decoracao. Sao dois sockets
+ * O `await` entre os dois `join` nao e decoracao. Sao duas conexoes
  * independentes, entao a ordem em que o servidor os atende nao e garantida:
  * disparar os dois seguidos deixa o assento no acaso, e o teste passa a falhar
  * de forma intermitente com um erro que nada tem a ver com o que ele queria
@@ -87,10 +101,8 @@ async function createMatch(): Promise<string> {
  * declarar a ordem era o teste.
  */
 async function seatBoth(a: TestClient, b: TestClient, matchId: string): Promise<void> {
-  a.send({ t: 'join', matchId });
-  await a.wait('joined');
-  b.send({ t: 'join', matchId });
-  await b.wait('joined');
+  await a.server.join({ matchId });
+  await b.server.join({ matchId });
 }
 
 beforeAll(async () => {
@@ -116,19 +128,17 @@ afterAll(() => {
   server?.kill('SIGKILL');
 });
 
-describe('protocolo em rede', () => {
+describe('RPC em rede', () => {
   it('o primeiro a entrar recebe as brancas e joga primeiro', async () => {
     const matchId = await createMatch();
     const a = new TestClient();
     const b = new TestClient();
     await Promise.all([a.open(), b.open()]);
 
-    a.send({ t: 'join', matchId });
-    const joinedA = await a.wait('joined');
+    const joinedA = await a.server.join({ matchId });
     expect(joinedA.color).toBe('W');
 
-    b.send({ t: 'join', matchId });
-    const joinedB = await b.wait('joined');
+    const joinedB = await b.server.join({ matchId });
     expect(joinedB.color).toBe('B');
 
     const state = await a.wait('state', (m) => (m as { snapshot: Snapshot }).snapshot.status === 'playing');
@@ -147,9 +157,10 @@ describe('protocolo em rede', () => {
     await seatBoth(a, b, matchId);
     await b.wait('state', (m) => (m as { snapshot: Snapshot }).snapshot.status === 'playing');
 
-    b.send({ t: 'move', from: 'd4', to: 'e3', kind: 'A' });
-    const err = await b.wait('error');
-    expect(err.code).toBe('NOT_YOUR_TURN');
+    // A recusa volta como erro DA CHAMADA, so para quem chamou.
+    await expect(b.server.move({ from: 'd4', to: 'e3', kind: 'A' })).rejects.toMatchObject({
+      data: 'NOT_YOUR_TURN',
+    });
     expect(b.socket.readyState).toBe(WebSocket.OPEN);
 
     a.close();
@@ -170,9 +181,9 @@ describe('protocolo em rede', () => {
     a.clear();
 
     // a1-a2 e paika: existe captura disponivel, entao esta proibido.
-    a.send({ t: 'move', from: 'a1', to: 'a2', kind: 'P' });
-    const err = await a.wait('error');
-    expect(err.code).toBe('ILLEGAL_MOVE');
+    await expect(a.server.move({ from: 'a1', to: 'a2', kind: 'P' })).rejects.toMatchObject({
+      data: 'ILLEGAL_MOVE',
+    });
 
     // Um lance recusado nao gera 'state' nenhum: se o servidor tivesse aplicado
     // o lance, este wait resolveria com um snapshot novo em vez de estourar.
@@ -194,7 +205,7 @@ describe('protocolo em rede', () => {
 
     // Espera os DOIS chegarem ao estado inicial antes de limpar as filas,
     // senao um deles fica um estado atrasado no resto do teste.
-    const playing = (m: ServerMessage) => (m as { snapshot: Snapshot }).snapshot.status === 'playing';
+    const playing = (m: Callback) => (m as { snapshot: Snapshot }).snapshot.status === 'playing';
     const [first] = await Promise.all([a.wait('state', playing), b.wait('state', playing)]);
     let snapshot = first.snapshot;
     a.clear();
@@ -211,10 +222,10 @@ describe('protocolo em rede', () => {
       const client = clients[snapshot.turn];
       // Sequencia e opcional: as vezes o jogador encerra a jogada.
       if (snapshot.sequence && pick(4) === 0) {
-        client.send({ t: 'endTurn' });
+        await client.server.endTurn();
       } else {
         const move = snapshot.legalMoves[pick(snapshot.legalMoves.length)];
-        client.send({ t: 'move', from: move.from, to: move.to, kind: move.kind });
+        await client.server.move({ from: move.from, to: move.to, kind: move.kind });
       }
       // Os DOIS clientes veem exatamente o mesmo estado — nao existe delta.
       const [sa, sb] = await Promise.all([a.wait('state'), b.wait('state')]);
@@ -242,7 +253,7 @@ describe('protocolo em rede', () => {
     await seatBoth(a, b, matchId);
     await a.wait('state', (m) => (m as { snapshot: Snapshot }).snapshot.status === 'playing');
 
-    a.send({ t: 'resign' });
+    await a.server.resign();
     const over = await b.wait('over');
     expect(over).toMatchObject({ winner: 'B', reason: 'resign' });
 
@@ -258,7 +269,7 @@ describe('protocolo em rede', () => {
     await seatBoth(a, b, matchId);
     await a.wait('state', (m) => (m as { snapshot: Snapshot }).snapshot.status === 'playing');
 
-    a.send({ t: 'resign' });
+    await a.server.resign();
     expect(await b.wait('over')).toMatchObject({ winner: 'B', reason: 'resign' });
 
     // O perdedor fecha a aba DEPOIS do fim. Isso nao pode virar abandono: o
@@ -278,15 +289,14 @@ describe('protocolo em rede', () => {
     const a = new TestClient();
     const b = new TestClient();
     await Promise.all([a.open(), b.open()]);
-    a.send({ t: 'join', matchId });
-    const joinedA = await a.wait('joined');
-    b.send({ t: 'join', matchId });
-    const playing = (m: ServerMessage) => (m as { snapshot: Snapshot }).snapshot.status === 'playing';
+    const joinedA = await a.server.join({ matchId });
+    await b.server.join({ matchId });
+    const playing = (m: Callback) => (m as { snapshot: Snapshot }).snapshot.status === 'playing';
     await Promise.all([a.wait('state', playing), b.wait('state', playing)]);
     a.clear();
     b.clear();
 
-    b.send({ t: 'chat', text: 'boa partida' });
+    await b.server.sendChat({ text: 'boa partida' });
     const [chatA, chatB] = await Promise.all([a.wait('chat'), b.wait('chat')]);
     expect(chatA).toMatchObject({ from: 'B', text: 'boa partida' });
     expect(chatB).toMatchObject({ from: 'B', text: 'boa partida' });
@@ -295,8 +305,7 @@ describe('protocolo em rede', () => {
     a.close();
     const again = new TestClient();
     await again.open();
-    again.send({ t: 'join', matchId, playerId: joinedA.playerId });
-    await again.wait('joined');
+    await again.server.join({ matchId, playerId: joinedA.playerId });
     const replay = await again.wait('chat');
     expect(replay).toMatchObject({ from: 'B', text: 'boa partida' });
 
@@ -309,16 +318,14 @@ describe('protocolo em rede', () => {
     const a = new TestClient();
     const b = new TestClient();
     await Promise.all([a.open(), b.open()]);
-    a.send({ t: 'join', matchId });
-    const joined = await a.wait('joined');
-    b.send({ t: 'join', matchId });
+    const joined = await a.server.join({ matchId });
+    await b.server.join({ matchId });
     await a.wait('state', (m) => (m as { snapshot: Snapshot }).snapshot.status === 'playing');
     a.close();
 
     const again = new TestClient();
     await again.open();
-    again.send({ t: 'join', matchId, playerId: joined.playerId });
-    const rejoined = await again.wait('joined');
+    const rejoined = await again.server.join({ matchId, playerId: joined.playerId });
     expect(rejoined.color).toBe('W');
     expect(rejoined.playerId).toBe(joined.playerId);
     // O worker continuou vivo: o estado volta intacto.
@@ -335,15 +342,11 @@ describe('protocolo em rede', () => {
     const c = new TestClient();
     await Promise.all([a.open(), b.open(), c.open()]);
 
-    a.send({ t: 'join', matchId });
-    await a.wait('joined');
-    b.send({ t: 'join', matchId });
-    await b.wait('joined');
+    await a.server.join({ matchId });
+    await b.server.join({ matchId });
 
     // Nao existe espectador: os dois assentos ja estao ocupados.
-    c.send({ t: 'join', matchId });
-    const err = await c.wait('error');
-    expect(err.code).toBe('MATCH_FULL');
+    await expect(c.server.join({ matchId })).rejects.toMatchObject({ data: 'MATCH_FULL' });
 
     // A recusa nao derruba a conexao nem cria um terceiro assento.
     expect(c.socket.readyState).toBe(c.socket.OPEN);
@@ -362,7 +365,7 @@ describe('protocolo em rede', () => {
     await Promise.all([a.open(), b.open()]);
     await seatBoth(a, b, matchId);
 
-    const playing = (m: ServerMessage) => (m as { snapshot: Snapshot }).snapshot.status === 'playing';
+    const playing = (m: Callback) => (m as { snapshot: Snapshot }).snapshot.status === 'playing';
     const [first] = await Promise.all([a.wait('state', playing), b.wait('state', playing)]);
     let snapshot = first.snapshot;
     a.clear();
@@ -378,7 +381,7 @@ describe('protocolo em rede', () => {
     let plies = 0;
     while (!snapshot.sequence && snapshot.status === 'playing' && plies < 200) {
       const move = snapshot.legalMoves[pick(snapshot.legalMoves.length)];
-      clients[snapshot.turn].send({ t: 'move', from: move.from, to: move.to, kind: move.kind });
+      await clients[snapshot.turn].server.move({ from: move.from, to: move.to, kind: move.kind });
       snapshot = (await a.wait('state')).snapshot;
       await b.wait('state');
       plies++;
@@ -391,7 +394,7 @@ describe('protocolo em rede', () => {
     expect(snapshot.legalMoves.every((m) => m.from === snapshot.sequence!.at)).toBe(true);
 
     // Regra 3.4.5: continuar e opcional. Encerrar e sempre aceito.
-    clients[emSequencia].send({ t: 'endTurn' });
+    await clients[emSequencia].server.endTurn();
     const depois = (await a.wait('state')).snapshot;
     expect(depois.sequence).toBeNull();
     expect(depois.turn).not.toBe(emSequencia);

@@ -1,9 +1,9 @@
 {
-  "name": "fanorona-sockets",
+  "name": "fanorona-rpc",
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "Fanorona multiplayer via WebSocket — PPD Projeto 1, IFCE",
+  "description": "Fanorona multiplayer via RPC (JSON-RPC 2.0) — PPD Projeto 2, IFCE",
   "scripts": {
     "dev": "concurrently -n server,client -c blue,magenta \"npm:dev:server\" \"npm:dev:client\"",
     "dev:server": "node scripts/build-server.mjs --watch",

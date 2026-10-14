@@ -74,8 +74,14 @@ function broadcast(): void {
   send({ t: 'state', snapshot: snapshot() });
 }
 
-function reject(playerId: string, code: ErrorCode): void {
-  send({ t: 'rejected', playerId, code });
+/**
+ * Cada pedido recebe exatamente UMA resposta `done` com o mesmo `req`.
+ * E isso que deixa a thread principal devolver o resultado da chamada RPC
+ * certa: o worker processa uma mensagem por vez, mas quem pergunta precisa
+ * saber qual resposta e a sua.
+ */
+function done(req: number, code?: ErrorCode): void {
+  send({ t: 'done', req, code });
 }
 
 function finish(outcome: Outcome): void {
@@ -94,16 +100,22 @@ function endTurn(): void {
   else broadcast();
 }
 
-function handleIntent(playerId: string, from: string, to: string, kind: 'P' | 'A' | 'W'): void {
+/** Retorna o motivo da recusa, ou null quando o lance foi aplicado. */
+function handleIntent(
+  playerId: string,
+  from: string,
+  to: string,
+  kind: 'P' | 'A' | 'W',
+): ErrorCode | null {
   const color = players.get(playerId);
-  if (!color) return reject(playerId, 'MATCH_NOT_FOUND');
-  if (over || status() !== 'playing') return reject(playerId, 'NOT_YOUR_TURN');
-  if (color !== turn) return reject(playerId, 'NOT_YOUR_TURN');
+  if (!color) return 'MATCH_NOT_FOUND';
+  if (over || status() !== 'playing') return 'NOT_YOUR_TURN';
+  if (color !== turn) return 'NOT_YOUR_TURN';
 
   // A autoridade e exercida aqui: a lista de lances legais e recalculada a
   // cada intencao. Um cliente adulterado nao consegue forjar nada.
   const move = findMove(legalMoves(board, turn, sequence), toIndex(from), toIndex(to), kind);
-  if (!move) return reject(playerId, 'ILLEGAL_MOVE');
+  if (!move) return 'ILLEGAL_MOVE';
 
   history.push(toNotation(toMove(move)));
   const enemy = other(turn);
@@ -111,10 +123,14 @@ function handleIntent(playerId: string, from: string, to: string, kind: 'P' | 'A
   sequence = applyMove(board, turn, move, sequence);
   captured[enemy] += before - countPieces(board, enemy);
 
-  if (countPieces(board, enemy) === 0) return finish({ winner: turn, reason: 'capture' });
+  if (countPieces(board, enemy) === 0) {
+    finish({ winner: turn, reason: 'capture' });
+    return null;
+  }
   // Sequencia em curso mantem o turno: uma jogada de N capturas e UM turno.
   if (sequence) broadcast();
   else endTurn();
+  return null;
 }
 
 port.on('message', (msg: ToWorker) => {
@@ -128,24 +144,29 @@ port.on('message', (msg: ToWorker) => {
       broadcast();
       return;
 
-    case 'intent':
-      handleIntent(msg.playerId, msg.move.from, msg.move.to, msg.move.kind);
+    case 'intent': {
+      const code = handleIntent(msg.playerId, msg.move.from, msg.move.to, msg.move.kind);
+      done(msg.req, code ?? undefined);
       return;
+    }
 
     case 'endTurn': {
       const color = players.get(msg.playerId);
-      if (!color || over) return;
+      if (!color) return done(msg.req, 'MATCH_NOT_FOUND');
       // Continuar a sequencia e opcional (regra 3.4.5); encerrar so faz
       // sentido no proprio turno e com uma sequencia em curso.
-      if (color !== turn || !sequence) return reject(msg.playerId, 'NOT_YOUR_TURN');
+      if (over || color !== turn || !sequence) return done(msg.req, 'NOT_YOUR_TURN');
       endTurn();
+      done(msg.req);
       return;
     }
 
     case 'resign': {
       const color = players.get(msg.playerId);
-      if (!color || over) return;
-      finish({ winner: other(color), reason: 'resign' });
+      if (!color) return done(msg.req, 'MATCH_NOT_FOUND');
+      // Desistir de partida ja encerrada nao muda nada, mas tambem nao e erro.
+      if (!over) finish({ winner: other(color), reason: 'resign' });
+      done(msg.req);
       return;
     }
   }

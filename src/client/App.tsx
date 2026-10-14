@@ -43,7 +43,7 @@ function Lobby() {
   return (
     <main className="lobby">
       <h1>Fanorona</h1>
-      <p className="sub">Fanoron-Sivy 9x5 · dois jogadores em rede via WebSocket</p>
+      <p className="sub">Fanoron-Sivy 9x5 · dois jogadores em rede via RPC</p>
       <button className="primary" onClick={create} disabled={busy}>
         {busy ? 'Criando...' : 'Criar partida'}
       </button>

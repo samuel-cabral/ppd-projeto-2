@@ -1,3 +1,6 @@
+> ⚠️ **Projeto 2:** o protocolo de mensagens abaixo foi substituído por RPC. Ver
+> [`08-rpc.md`](08-rpc.md). Mantido como registro do Projeto 1.
+
 # Protocolo
 
 > Contexto: [`02-arquitetura.md`](02-arquitetura.md). Justificativa do formato: [ADR-003](adr/003-estado-completo-em-vez-de-delta.md).

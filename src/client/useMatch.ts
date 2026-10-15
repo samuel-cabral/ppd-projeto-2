@@ -18,7 +18,8 @@ export interface MatchView extends MatchState {
   connection: 'connecting' | 'open' | 'closed';
   move: (from: Point, to: Point, kind: Kind) => void;
   endTurn: () => void;
-  resign: () => void;
+  /** Resolve true quando o servidor aceitou a desistencia. */
+  resign: () => Promise<boolean>;
   sendChat: (text: string) => void;
 }
 
@@ -78,10 +79,19 @@ export function useMatch(matchId: string | null): MatchView {
     return () => socket.close();
   }, [matchId]);
 
-  /** Recusa de uma operacao (lance ilegal, fora do turno) vira mensagem na tela. */
-  const invoke = (call: (s: Stub<FanoronaServer>) => Promise<unknown>) => {
-    if (!server.current) return;
-    call(server.current).catch((err: Error) => dispatch({ t: 'error', message: err.message }));
+  /**
+   * Recusa de uma operacao (lance ilegal, fora do turno) vira mensagem na tela.
+   * Resolve true quando a chamada foi aceita, para quem precisa reagir ao sucesso.
+   */
+  const invoke = (call: (s: Stub<FanoronaServer>) => Promise<unknown>): Promise<boolean> => {
+    if (!server.current) return Promise.resolve(false);
+    return call(server.current).then(
+      () => true,
+      (err: Error) => {
+        dispatch({ t: 'error', message: err.message });
+        return false;
+      },
+    );
   };
 
   return {

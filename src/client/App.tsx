@@ -258,9 +258,20 @@ function MatchScreen({ matchId }: { matchId: string }) {
         {!match.over && snapshot.status !== 'waiting' && (
           <button
             className="danger"
-            onClick={() => confirm('Desistir da partida?') && match.resign()}
+            onClick={async () => {
+              // Quem desiste volta para a tela inicial, mas so depois que o
+              // servidor confirmou: sair antes fecharia a conexao com a
+              // chamada ainda no ar.
+              if (confirm('Desistir da partida?') && (await match.resign())) location.hash = '';
+            }}
           >
             Desistir
+          </button>
+        )}
+
+        {match.over && (
+          <button className="secondary" onClick={() => (location.hash = '')}>
+            Voltar para a tela inicial
           </button>
         )}
 

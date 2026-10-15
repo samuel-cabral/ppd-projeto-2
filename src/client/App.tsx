@@ -128,9 +128,11 @@ function MatchScreen({ matchId }: { matchId: string }) {
     return (
       <main className="screen">
         <p className="status-line">
-          {match.connection === 'closed'
-            ? (match.error ?? 'Conexao encerrada.')
-            : 'Conectando ao servidor...'}
+          {match.error
+            ? 'Nao foi possivel entrar na partida.'
+            : match.connection === 'closed'
+              ? 'Conexao encerrada.'
+              : 'Conectando ao servidor...'}
         </p>
         {match.error && <p className="error">{match.error}</p>}
       </main>
